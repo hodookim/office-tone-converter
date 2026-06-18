@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://office-tone-converter.vercel.app/sitemap.xml
