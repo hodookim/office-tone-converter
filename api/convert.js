@@ -1,0 +1,200 @@
+const cache = new Map();
+const usageByVisitor = new Map();
+
+const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 5);
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+const MAX_TEXT_LENGTH = 500;
+
+const labels = {
+  tone: {
+    polite: "정중",
+    soft: "부드럽게",
+    firm: "단호하게",
+    short: "짧게",
+  },
+  format: {
+    general: "일반 업무 문장",
+    mail: "메일 문장",
+    chat: "메신저 문장",
+    report: "보고 문장",
+  },
+};
+
+module.exports = async function handler(req, res) {
+  if (req.method !== "POST") {
+    return sendJson(res, 405, { error: "POST 요청만 가능합니다." });
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    return sendJson(res, 503, { error: "AI 설정이 아직 연결되지 않았습니다." });
+  }
+
+  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const text = String(body.text || "").trim().slice(0, MAX_TEXT_LENGTH);
+  const tone = labels.tone[body.tone] ? body.tone : "polite";
+  const format = labels.format[body.format] ? body.format : "general";
+
+  if (!text) {
+    return sendJson(res, 400, { error: "변환할 문장이 없습니다." });
+  }
+
+  const cacheKey = JSON.stringify({ text, tone, format });
+  if (cache.has(cacheKey)) {
+    return sendJson(res, 200, { results: cache.get(cacheKey), cached: true });
+  }
+
+  const shouldLimit = !isLocalRequest(req);
+  const visitorKey = getVisitorKey(req);
+  if (shouldLimit && isLimitExceeded(visitorKey)) {
+    return sendJson(res, 429, {
+      error: "오늘 무료 AI 변환 횟수를 모두 사용했습니다.",
+      code: "DAILY_LIMIT",
+    });
+  }
+
+  try {
+    const results = await convertWithGemini({ text, tone, format, intentHint: inferIntentHint(text) });
+    cache.set(cacheKey, results);
+
+    if (shouldLimit) {
+      incrementUsage(visitorKey);
+    }
+
+    return sendJson(res, 200, { results, cached: false });
+  } catch (error) {
+    return sendJson(res, 502, {
+      error: "AI 변환이 잠시 불안정합니다.",
+      detail: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+async function convertWithGemini({ text, tone, format, intentHint }) {
+  const prompt = [
+    "너는 한국 회사에서 바로 보낼 수 있는 업무 문장 변환기다.",
+    "사용자의 거친 표현, 애매한 표현, 감정 섞인 표현을 실무적인 한국어로 바꿔라.",
+    "원문의 핵심 의미와 대상은 반드시 유지하라. 재촉, 거절, 일정 불가, 반박, 책임 범위, 자료 요청 같은 의도를 일반적인 확인 요청으로 뭉개지 마라.",
+    "원문에 일정, 자료, 담당 범위, 완료 여부처럼 구체적인 대상이 있으면 결과에도 그 대상을 반영하라.",
+    "원문의 의도를 먼저 판단하되, 사용자에게 상황을 묻지 말고 스스로 추론하라.",
+    "선택된 톤과 형식을 가장 중요하게 반영하라.",
+    "결과 2개는 같은 톤 안에서 서로 다른 선택지가 되어야 한다.",
+    "과장된 사과, 비굴한 표현, 이모지, 마크다운은 쓰지 마라.",
+    "회사 기밀처럼 보이는 세부 정보는 새로 만들거나 추측하지 마라.",
+    "아래 분석 힌트가 있으면 그 힌트를 우선하라. 단, 원문에 없는 내용을 지어내지 마라.",
+    "결과는 JSON만 반환한다. 다른 설명은 하지 마라.",
+    "",
+    `원문: ${text}`,
+    `분석 힌트: ${intentHint}`,
+    `톤: ${labels.tone[tone]}`,
+    `형식: ${labels.format[format]}`,
+    "",
+    "제목은 결과의 쓰임이 보이게 짧게 써라.",
+    '형식: {"results":[{"title":"바로 보내기","text":"..."},{"title":"조금 더 다듬기","text":"..."}]}',
+  ].join("\n");
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 320,
+          responseMimeType: "application/json",
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const parsed = JSON.parse(raw);
+  const results = Array.isArray(parsed.results) ? parsed.results : [];
+
+  return results
+    .filter((item) => item && typeof item.text === "string" && item.text.trim())
+    .slice(0, 2)
+    .map((item, index) => ({
+      title: item.title || ["바로 보내기", "조금 더 다듬기"][index],
+      text: item.text.trim(),
+    }));
+}
+
+function inferIntentHint(text) {
+  const normalized = text.replace(/\s+/g, "");
+
+  if (/일정|기한|마감|데드라인/.test(text) && /말이안|무리|어렵|불가능|안됩니다|안돼/.test(normalized)) {
+    return "일정이 비현실적이거나 진행이 어려워 일정 조정 또는 현실성 검토를 요청하는 문장";
+  }
+
+  if (/제\s*일|내\s*일|담당|업무\s*범위/.test(text) && /아닌|아니|모르|왜/.test(text)) {
+    return "담당 범위가 아니거나 담당자 확인이 필요한 문장";
+  }
+
+  if (/왜|아직|언제|안됐|안되|지연/.test(text)) {
+    return "진행 상황 확인 또는 지연 사유 확인을 요청하는 문장";
+  }
+
+  if (/못|어렵|불가|안\s*됩니다|안\s*돼/.test(text)) {
+    return "일정 변경, 거절, 또는 진행 어려움을 알리는 문장";
+  }
+
+  if (/자료|파일|문서|공유|보내/.test(text)) {
+    return "자료 요청 또는 공유 요청 문장";
+  }
+
+  if (/아닌|리스크|문제|이상|틀린|반대/.test(text)) {
+    return "반박, 우려 제기, 또는 대안 검토 요청 문장";
+  }
+
+  return "원문을 읽고 의도를 직접 판단";
+}
+
+function getVisitorKey(req) {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  const ip = Array.isArray(forwardedFor) ? forwardedFor[0] : String(forwardedFor || req.socket?.remoteAddress || "unknown");
+  return ip.split(",")[0].trim();
+}
+
+function isLocalRequest(req) {
+  const host = String(req.headers.host || "");
+  return host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:");
+}
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isLimitExceeded(visitorKey) {
+  const usage = usageByVisitor.get(visitorKey);
+  return usage?.date === getTodayKey() && usage.count >= DAILY_LIMIT;
+}
+
+function incrementUsage(visitorKey) {
+  const date = getTodayKey();
+  const usage = usageByVisitor.get(visitorKey);
+
+  if (!usage || usage.date !== date) {
+    usageByVisitor.set(visitorKey, { date, count: 1 });
+    return;
+  }
+
+  usage.count += 1;
+}
+
+function sendJson(res, status, data) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(data));
+}

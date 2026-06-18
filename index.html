@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>회사어 번역기</title>
+    <meta name="description" content="대충 쓴 말을 회사에서 바로 보낼 수 있는 업무 문장으로 바꿔주는 AI 회사어 번역기입니다." />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="회사어 번역기">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Office Tone Converter</p>
+            <h1>회사어 번역기</h1>
+            <p class="tagline">대충 쓴 말을 회사에서 바로 보낼 수 있게 바꿔드립니다.</p>
+          </div>
+          <button class="ghost-button" id="clearButton" type="button">초기화</button>
+        </header>
+
+        <div class="editor-grid">
+          <section class="panel input-panel">
+            <div class="panel-head">
+              <h2>원문</h2>
+              <span id="charCount">0자</span>
+            </div>
+            <textarea
+              id="sourceText"
+              maxlength="500"
+              placeholder="예: 이거 왜 아직 안됐어요?"
+            ></textarea>
+
+            <div class="control-block">
+              <p class="label">톤</p>
+              <div class="chip-grid compact" id="toneGroup" role="radiogroup" aria-label="톤 선택">
+                <button class="chip active" type="button" data-value="polite">정중</button>
+                <button class="chip" type="button" data-value="soft">부드럽게</button>
+                <button class="chip" type="button" data-value="firm">단호하게</button>
+                <button class="chip" type="button" data-value="short">짧게</button>
+              </div>
+            </div>
+
+            <div class="control-block">
+              <p class="label">형식</p>
+              <div class="chip-grid compact" id="formatGroup" role="radiogroup" aria-label="형식 선택">
+                <button class="chip active" type="button" data-value="general">일반</button>
+                <button class="chip" type="button" data-value="mail">메일</button>
+                <button class="chip" type="button" data-value="chat">메신저</button>
+                <button class="chip" type="button" data-value="report">보고</button>
+              </div>
+            </div>
+
+            <button class="primary-button" id="convertButton" type="button">변환하기</button>
+            <p class="privacy-note">회사 기밀, 개인정보, 계약 내용은 입력하지 마세요.</p>
+          </section>
+
+          <section class="panel result-panel">
+            <div class="panel-head">
+              <div>
+                <h2>변환 결과</h2>
+                <span id="modeLabel">정중 · 일반</span>
+              </div>
+              <button class="result-action" id="copyAllButton" type="button" disabled>전체 복사</button>
+            </div>
+            <div class="result-list" id="resultList">
+              <article class="empty-state">
+                <strong>문장을 입력하면 AI가 상황을 알아서 판단합니다.</strong>
+                <span>톤과 형식만 고르면 바로 보낼 수 있는 문장 2개를 만들어드려요.</span>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <section class="quick-examples" aria-label="예시 문장">
+          <button type="button" data-example="이거 왜 아직 안됐어요?">이거 왜 아직 안됐어요?</button>
+          <button type="button" data-example="오늘 못합니다">오늘 못합니다</button>
+          <button type="button" data-example="이건 좀 아닌 것 같은데요">이건 좀 아닌 것 같은데요</button>
+          <button type="button" data-example="자료 다시 보내주세요">자료 다시 보내주세요</button>
+          <button type="button" data-example="그건 제 일이 아닌데요">그건 제 일이 아닌데요</button>
+          <button type="button" data-example="지난번에도 말했잖아요">지난번에도 말했잖아요</button>
+          <button type="button" data-example="이 일정은 말이 안 됩니다">이 일정은 말이 안 됩니다</button>
+          <button type="button" data-example="왜 저한테 물어보세요?">왜 저한테 물어보세요?</button>
+        </section>
+
+        <section class="recent-panel" aria-label="최근 변환">
+          <div class="recent-head">
+            <h2>최근 변환</h2>
+            <button class="text-button" id="clearRecentButton" type="button">비우기</button>
+          </div>
+          <div class="recent-list" id="recentList">
+            <p class="recent-empty">아직 저장된 변환이 없습니다.</p>
+          </div>
+        </section>
+
+        <aside class="ad-slot" aria-label="광고 영역">
+          <span>광고 영역</span>
+          <strong>나중에 한도 초과 시 광고 보고 추가 생성으로 연결</strong>
+        </aside>
+
+        <footer class="site-footer">
+          <span>회사어 번역기</span>
+          <nav aria-label="사이트 정보">
+            <a href="./about.html">소개</a>
+            <a href="./privacy.html">개인정보처리방침</a>
+            <a href="./terms.html">이용약관</a>
+            <a href="./contact.html">문의</a>
+          </nav>
+        </footer>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
