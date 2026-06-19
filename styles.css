@@ -13,7 +13,6 @@
   --ink: #0a1a14;
   --cell: #ffffff;
   --cell-head: #eef4f1;
-  --ribbon: #e8f2ed;
   --warn: #8b4b15;
   --shadow: 0 18px 50px rgba(22, 45, 34, 0.12);
 }
@@ -33,7 +32,6 @@
     --ink: #07100e;
     --cell: #202927;
     --cell-head: #26312e;
-    --ribbon: #17231f;
     --warn: #ffbf7a;
     --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
   }
@@ -104,7 +102,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 88px;
+  min-height: 86px;
   padding: 18px 22px 16px;
   border-bottom: 1px solid var(--line);
   background:
@@ -116,82 +114,6 @@ button {
   .topbar {
     background: linear-gradient(135deg, #18201e 0%, #1c2221 58%, #12241f 100%);
   }
-}
-
-.ribbon-bar {
-  display: flex;
-  align-items: end;
-  gap: 2px;
-  min-height: 43px;
-  padding: 8px 22px 0;
-  border-bottom: 1px solid var(--line);
-  background: var(--ribbon);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.ribbon-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.ribbon-tab {
-  flex: 0 0 auto;
-  min-width: 74px;
-  padding: 9px 13px 10px;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.ribbon-tab.active {
-  border-color: var(--line);
-  background: var(--surface);
-  color: var(--accent-dark);
-}
-
-.formula-bar {
-  display: grid;
-  grid-template-columns: 72px 44px minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  padding: 10px 22px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.name-box,
-.fx-box,
-.formula-text {
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--line);
-  background: var(--cell);
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.name-box {
-  justify-content: center;
-  font-weight: 800;
-}
-
-.fx-box {
-  justify-content: center;
-  color: var(--accent-dark);
-  font-weight: 900;
-  font-style: italic;
-}
-
-.formula-text {
-  padding: 0 12px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .brand-block {
@@ -276,6 +198,17 @@ h2 {
     linear-gradient(90deg, var(--line) 1px, transparent 1px);
   background-size: 64px 42px;
   background-color: var(--surface);
+}
+
+.editor-grid::before {
+  content: "";
+  grid-column: 1 / -1;
+  height: 28px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, var(--cell-head) 0 44px, transparent 44px),
+    repeating-linear-gradient(90deg, transparent 0 63px, var(--line) 63px 64px),
+    var(--surface);
 }
 
 .panel {
