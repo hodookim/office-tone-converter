@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --bg: #eef3f5;
   --surface: #ffffff;
   --surface-muted: #f7f9fb;
@@ -13,6 +13,24 @@
   --ink: #0d1720;
   --warn: #8b4b15;
   --shadow: 0 18px 50px rgba(31, 45, 61, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121716;
+    --surface: #1c2221;
+    --surface-muted: #171d1c;
+    --line: #3a4643;
+    --line-strong: #56645f;
+    --text: #f1f6f4;
+    --muted: #b4c1bd;
+    --accent: #5fe0c5;
+    --accent-dark: #d8fff5;
+    --accent-soft: #173b34;
+    --ink: #07100e;
+    --warn: #ffbf7a;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  }
 }
 
 * {
@@ -36,6 +54,15 @@ body {
   color: var(--text);
 }
 
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      linear-gradient(180deg, #111716, #18201e),
+      repeating-linear-gradient(90deg, rgba(95, 224, 197, 0.055) 0 1px, transparent 1px 96px),
+      repeating-linear-gradient(0deg, rgba(95, 224, 197, 0.04) 0 1px, transparent 1px 36px);
+  }
+}
+
 button,
 textarea {
   font: inherit;
@@ -43,6 +70,7 @@ textarea {
 
 button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-shell {
@@ -59,6 +87,12 @@ button {
   box-shadow: var(--shadow);
 }
 
+@media (prefers-color-scheme: dark) {
+  .workspace {
+    background: rgba(28, 34, 33, 0.96);
+  }
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -68,6 +102,12 @@ button {
   padding: 18px 22px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(135deg, #f8fbfa 0%, #fff 58%, #eef7f4 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .topbar {
+    background: linear-gradient(135deg, #18201e 0%, #1c2221 58%, #12241f 100%);
+  }
 }
 
 .brand-block {
@@ -92,6 +132,15 @@ button {
   color: #fff;
   font-weight: 900;
   box-shadow: 0 10px 24px rgba(23, 107, 91, 0.24);
+}
+
+.brand-mark::after {
+  content: "";
+  width: 18px;
+  height: 3px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .eyebrow {
@@ -192,6 +241,13 @@ textarea {
   line-height: 1.55;
 }
 
+@media (prefers-color-scheme: dark) {
+  textarea {
+    background: #242a29;
+    color: var(--text);
+  }
+}
+
 textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(23, 107, 91, 0.14);
@@ -222,17 +278,22 @@ textarea:focus {
 .ghost-button,
 .primary-button,
 .copy-button,
-.quick-examples button {
+.quick-examples button,
+.result-action,
+.text-button,
+.recent-item {
   border-radius: 6px;
   border: 1px solid var(--line);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease,
+    box-shadow 0.15s ease,
     transform 0.15s ease;
 }
 
 .chip {
+  position: relative;
   min-height: 42px;
   padding: 9px 10px;
   background: #fff;
@@ -242,8 +303,40 @@ textarea:focus {
 
 .chip.active {
   border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent-dark);
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.chip.active::after {
+  content: "✓";
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: currentColor;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chip,
+  .ghost-button,
+  .quick-examples button,
+  .result-action,
+  .text-button {
+    background: #262d2b;
+    color: var(--text);
+    border-color: var(--line-strong);
+  }
+
+  .chip.active {
+    border-color: #7ff4da;
+    background: #126b5d;
+    color: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(127, 244, 218, 0.32);
+  }
 }
 
 .ghost-button {
@@ -281,6 +374,20 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+.primary-button:active,
+.chip:active,
+.quick-examples button:active,
+.ghost-button:active {
+  transform: translateY(0);
+}
+
+button:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(95, 224, 197, 0.35);
+  outline-offset: 2px;
+}
+
 .result-list {
   display: grid;
   gap: 12px;
@@ -294,8 +401,19 @@ textarea:focus {
   background: #fff;
 }
 
+@media (prefers-color-scheme: dark) {
+  .result-card,
+  .empty-state,
+  .limit-state,
+  .recent-item,
+  .content-card {
+    background: var(--surface);
+  }
+}
+
 .result-card {
   padding: 16px;
+  border-left: 4px solid var(--accent);
   box-shadow: 0 8px 22px rgba(31, 45, 61, 0.05);
 }
 
@@ -322,6 +440,13 @@ textarea:focus {
   line-height: 1.62;
   word-break: keep-all;
   overflow-wrap: anywhere;
+}
+
+@media (prefers-color-scheme: dark) {
+  .result-card p,
+  .content-card p {
+    color: var(--text);
+  }
 }
 
 .copy-button {
@@ -364,6 +489,19 @@ textarea:focus {
   gap: 6px;
   padding: 18px;
   color: var(--muted);
+}
+
+.empty-state::before {
+  content: "AI";
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .limit-state {
@@ -424,6 +562,21 @@ textarea:focus {
   font-size: 12px;
 }
 
+@media (prefers-color-scheme: dark) {
+  .ad-slot,
+  .seo-section,
+  .site-footer,
+  .recent-panel,
+  .quick-examples,
+  .result-panel {
+    background: var(--surface);
+  }
+
+  .input-panel {
+    background: var(--surface-muted);
+  }
+}
+
 .ad-slot span {
   padding: 4px 7px;
   border: 1px solid var(--line);
@@ -431,6 +584,13 @@ textarea:focus {
   background: #fff;
   color: var(--accent-dark);
   font-weight: 800;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ad-slot span,
+  .contact-placeholder {
+    background: #262d2b;
+  }
 }
 
 .ad-slot strong {
@@ -560,6 +720,7 @@ textarea:focus {
 .chip:hover {
   border-color: var(--accent);
   color: var(--accent-dark);
+  box-shadow: 0 8px 18px rgba(31, 45, 61, 0.08);
 }
 
 .recent-panel {
@@ -596,6 +757,12 @@ textarea:focus {
   background: #fff;
   color: var(--text);
   text-align: left;
+}
+
+@media (prefers-color-scheme: dark) {
+  .recent-item {
+    color: var(--text);
+  }
 }
 
 .recent-item strong {
@@ -680,10 +847,13 @@ textarea:focus {
 
 @media (max-width: 520px) {
   .chip-grid,
-  .chip-grid.compact,
-  .quick-examples,
   .recent-list {
     grid-template-columns: 1fr;
+  }
+
+  .chip-grid.compact,
+  .quick-examples {
+    grid-template-columns: 1fr 1fr;
   }
 
   .topbar {
@@ -703,5 +873,17 @@ textarea:focus {
 
   .ghost-button {
     width: 100%;
+  }
+
+  .chip {
+    min-height: 48px;
+  }
+
+  .primary-button {
+    min-height: 54px;
+  }
+
+  .quick-examples button {
+    white-space: normal;
   }
 }
