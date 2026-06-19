@@ -1,5 +1,11 @@
 User-agent: *
 Allow: /
 
+User-agent: Yeti
+Allow: /
+
+User-agent: Daumoa
+Allow: /
+
 Sitemap: https://office-tone-converter.vercel.app/sitemap.xml
 Sitemap: https://office-tone-converter.vercel.app/sitemap.txt
