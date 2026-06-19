@@ -12,6 +12,9 @@ const contentTypes = {
   ".css": "text/css; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
 };
 
 const server = http.createServer(async (req, res) => {
@@ -21,7 +24,7 @@ const server = http.createServer(async (req, res) => {
       raw += chunk;
     });
     req.on("end", async () => {
-      req.body = raw ? JSON.parse(raw) : {};
+      req.body = raw || "{}";
       await convert(req, res);
     });
     return;

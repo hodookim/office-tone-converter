@@ -4,6 +4,7 @@ const usageByVisitor = new Map();
 const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 5);
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 const MAX_TEXT_LENGTH = 500;
+const MAX_CACHE_ITEMS = 200;
 
 const labels = {
   tone: {
@@ -29,7 +30,12 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 503, { error: "AI 설정이 아직 연결되지 않았습니다." });
   }
 
-  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  let body;
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  } catch {
+    return sendJson(res, 400, { error: "요청 형식이 올바르지 않습니다." });
+  }
   const text = String(body.text || "").trim().slice(0, MAX_TEXT_LENGTH);
   const tone = labels.tone[body.tone] ? body.tone : "polite";
   const format = labels.format[body.format] ? body.format : "general";
@@ -54,6 +60,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const results = await convertWithGemini({ text, tone, format, intentHint: inferIntentHint(text) });
+    pruneCache();
     cache.set(cacheKey, results);
 
     if (shouldLimit) {
@@ -119,7 +126,12 @@ async function convertWithGemini({ text, tone, format, intentHint }) {
 
   const data = await response.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const parsed = JSON.parse(raw);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Gemini returned invalid JSON");
+  }
   const results = Array.isArray(parsed.results) ? parsed.results : [];
 
   return results
@@ -191,6 +203,12 @@ function incrementUsage(visitorKey) {
   }
 
   usage.count += 1;
+}
+
+function pruneCache() {
+  if (cache.size < MAX_CACHE_ITEMS) return;
+  const oldestKey = cache.keys().next().value;
+  if (oldestKey) cache.delete(oldestKey);
 }
 
 function sendJson(res, status, data) {

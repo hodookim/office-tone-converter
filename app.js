@@ -37,8 +37,12 @@ function getActiveValue(group) {
 
 function setActive(button) {
   const group = button.parentElement;
-  group.querySelectorAll(".chip").forEach((chip) => chip.classList.remove("active"));
+  group.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.remove("active");
+    chip.setAttribute("aria-checked", "false");
+  });
   button.classList.add("active");
+  button.setAttribute("aria-checked", "true");
   updateModeLabel();
 }
 
@@ -137,7 +141,7 @@ function renderResults(items) {
     copy.type = "button";
     copy.textContent = "복사";
     copy.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(item.text);
+      await writeClipboard(item.text);
       copy.textContent = "완료";
       card.classList.add("copied");
       setTimeout(() => {
@@ -244,6 +248,30 @@ function renderRecent() {
   });
 }
 
+function syncChipAccessibility() {
+  document.querySelectorAll(".chip").forEach((chip) => {
+    chip.setAttribute("role", "radio");
+    chip.setAttribute("aria-checked", String(chip.classList.contains("active")));
+  });
+}
+
+async function writeClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const fallback = document.createElement("textarea");
+  fallback.value = text;
+  fallback.setAttribute("readonly", "");
+  fallback.style.position = "fixed";
+  fallback.style.top = "-9999px";
+  document.body.append(fallback);
+  fallback.select();
+  document.execCommand("copy");
+  fallback.remove();
+}
+
 function setLoading(isLoading) {
   convertButton.disabled = isLoading;
   convertButton.textContent = isLoading ? "변환 중..." : "변환하기";
@@ -324,7 +352,7 @@ sourceText.addEventListener("keydown", (event) => {
 convertButton.addEventListener("click", buildResults);
 copyAllButton.addEventListener("click", async () => {
   if (lastResults.length === 0) return;
-  await navigator.clipboard.writeText(lastResults.map((item) => item.text).join("\n\n"));
+  await writeClipboard(lastResults.map((item) => item.text).join("\n\n"));
   copyAllButton.textContent = "완료";
   setTimeout(updateCopyAllState, 1200);
 });
@@ -347,5 +375,6 @@ clearButton.addEventListener("click", () => {
 updateCount();
 updateModeLabel();
 updateCopyAllState();
+syncChipAccessibility();
 applyTheme(localStorage.getItem(THEME_KEY) || "auto");
 renderRecent();
