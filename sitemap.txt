@@ -3,3 +3,6 @@ https://office-tone-converter.vercel.app/about.html
 https://office-tone-converter.vercel.app/privacy.html
 https://office-tone-converter.vercel.app/terms.html
 https://office-tone-converter.vercel.app/contact.html
+https://office-tone-converter.vercel.app/office-phrases.html
+https://office-tone-converter.vercel.app/business-email-tips.html
+https://office-tone-converter.vercel.app/polite-reminder.html

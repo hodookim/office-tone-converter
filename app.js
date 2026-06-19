@@ -9,8 +9,10 @@ const recentList = document.querySelector("#recentList");
 const modeLabel = document.querySelector("#modeLabel");
 const toneGroup = document.querySelector("#toneGroup");
 const formatGroup = document.querySelector("#formatGroup");
+const themeOptions = document.querySelectorAll("[data-theme]");
 
 const RECENT_KEY = "office-tone-recent";
+const THEME_KEY = "office-tone-theme";
 let hasConverted = false;
 let lastResults = [];
 
@@ -262,6 +264,23 @@ function updateModeLabel() {
   modeLabel.textContent = `${labels.tone[tone]} · ${labels.format[format]}`;
 }
 
+function applyTheme(theme) {
+  const nextTheme = ["light", "dark"].includes(theme) ? theme : "auto";
+  if (nextTheme === "auto") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.dataset.theme = nextTheme;
+  }
+
+  themeOptions.forEach((button) => {
+    const isActive = button.dataset.theme === nextTheme;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  localStorage.setItem(THEME_KEY, nextTheme);
+}
+
 document.querySelectorAll(".chip").forEach((button) => {
   button.addEventListener("click", () => {
     setActive(button);
@@ -280,6 +299,10 @@ document.querySelectorAll("[data-example]").forEach((button) => {
     buildResults();
     sourceText.focus();
   });
+});
+
+themeOptions.forEach((button) => {
+  button.addEventListener("click", () => applyTheme(button.dataset.theme));
 });
 
 sourceText.addEventListener("input", () => {
@@ -324,4 +347,5 @@ clearButton.addEventListener("click", () => {
 updateCount();
 updateModeLabel();
 updateCopyAllState();
+applyTheme(localStorage.getItem(THEME_KEY) || "auto");
 renderRecent();
