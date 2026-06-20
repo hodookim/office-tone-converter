@@ -1,0 +1,8 @@
+{
+  "name": "annual-leave-reason-generator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node local-server.js"
+  }
+}

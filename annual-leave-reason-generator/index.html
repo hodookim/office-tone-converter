@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>연차 사유 생성기 | 잇츠에이아이</title>
+    <meta name="description" content="연차, 병가, 지각, 반차, 재택 요청을 회사에 바로 보낼 수 있는 정중한 문장으로 바꿔주는 무료 AI 문장 도구입니다." />
+    <meta name="application-name" content="연차 사유 생성기" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://annual-leave-reason-generator.vercel.app/" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content="연차 사유 생성기 | 잇츠에이아이" />
+    <meta property="og:description" content="연차, 병가, 지각, 반차, 재택 요청을 회사에 바로 보낼 수 있는 정중한 문장으로 정리합니다." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://annual-leave-reason-generator.vercel.app/" />
+    <meta name="twitter:card" content="summary" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": ["WebSite", "WebApplication"],
+        "name": "연차 사유 생성기",
+        "alternateName": "잇츠에이아이 연차 사유 생성기",
+        "url": "https://annual-leave-reason-generator.vercel.app/",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "ko-KR",
+        "description": "연차, 병가, 지각, 반차, 재택 요청을 회사에 바로 보낼 수 있는 정중한 문장으로 바꿔주는 무료 AI 문장 도구입니다.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "KRW"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "잇츠에이아이"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "연차 사유를 자세히 써야 하나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "회사 분위기에 따라 다르지만 일반적으로 개인 사정, 병원 진료, 가족 일정처럼 필요한 수준만 간단히 쓰는 편이 안전합니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "생성한 문장을 그대로 보내도 되나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "생성 결과는 참고용입니다. 실제 회사 규정, 근태 시스템, 상사와의 관계에 맞게 날짜와 시간을 확인한 뒤 사용하세요."
+            }
+          }
+        ]
+      }
+    </script>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="brand-card" aria-hidden="true">
+          <span>OFF</span>
+          <strong>연차</strong>
+          <small>reason memo</small>
+        </div>
+        <div class="hero-copy">
+          <p class="eyebrow">ITS AI · OFFICE MESSAGE TOOL</p>
+          <h1>연차 사유 생성기</h1>
+          <p>연차, 병가, 지각, 반차처럼 말하기 애매한 근태 문장을 바로 보낼 수 있게 정리합니다.</p>
+        </div>
+        <div class="theme-actions" aria-label="화면 모드">
+          <button type="button" class="theme-button" data-theme-value="auto">자동</button>
+          <button type="button" class="theme-button" data-theme-value="light">밝게</button>
+          <button type="button" class="theme-button" data-theme-value="dark">어둡게</button>
+        </div>
+      </section>
+
+      <section class="tool-grid" aria-label="연차 사유 생성 도구">
+        <form class="panel input-panel" id="reasonForm">
+          <div class="field-row">
+            <label for="sourceText">상황</label>
+            <span id="textCount">0자</span>
+          </div>
+          <textarea id="sourceText" maxlength="300" placeholder="예: 내일 오후에 병원 예약이 있어서 반차 쓰고 싶어"></textarea>
+
+          <fieldset>
+            <legend>종류</legend>
+            <div class="chips" data-group="reasonType">
+              <button type="button" class="chip active" data-value="annual">연차</button>
+              <button type="button" class="chip" data-value="half">반차</button>
+              <button type="button" class="chip" data-value="sick">병가</button>
+              <button type="button" class="chip" data-value="late">지각</button>
+              <button type="button" class="chip" data-value="remote">재택</button>
+              <button type="button" class="chip" data-value="early">조퇴</button>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>표현</legend>
+            <div class="chips" data-group="style">
+              <button type="button" class="chip active" data-value="normal">기본</button>
+              <button type="button" class="chip" data-value="polite">정중</button>
+              <button type="button" class="chip" data-value="short">짧게</button>
+              <button type="button" class="chip" data-value="messenger">메신저</button>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="primary-button" id="generateButton">문장 만들기</button>
+          <p class="notice">회사 기밀, 주민번호, 진단명 등 민감한 정보는 입력하지 마세요.</p>
+        </form>
+
+        <section class="panel result-panel" aria-live="polite">
+          <div class="result-head">
+            <div>
+              <h2>생성 결과</h2>
+              <p id="modeLabel">연차 · 기본</p>
+            </div>
+            <button type="button" class="ghost-button" id="copyAllButton" disabled>전체 복사</button>
+          </div>
+          <div id="resultList" class="result-list">
+            <div class="empty-state">
+              <strong>상황을 입력하면 AI가 사유를 정리합니다.</strong>
+              <span>회사에 바로 보낼 수 있는 문장 2개를 만들어드려요.</span>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="quick-section" aria-label="빠른 예시">
+        <button type="button">오늘 하루 쉬고 싶어</button>
+        <button type="button">내일 병원 때문에 오전 반차</button>
+        <button type="button">지하철 지연으로 20분 늦음</button>
+        <button type="button">오후에 가족 일정으로 조퇴</button>
+        <button type="button">컨디션이 안 좋아서 병가</button>
+        <button type="button">집중 업무 때문에 재택 요청</button>
+      </section>
+
+      <section class="content-section">
+        <div>
+          <h2>연차 사유는 짧고 명확한 편이 좋습니다</h2>
+          <p>연차나 반차를 요청할 때는 지나치게 자세한 사정을 모두 설명하기보다, 필요한 날짜와 시간, 업무 인수인계 여부를 함께 전달하는 편이 안전합니다. “개인 사정으로 연차 사용 가능할지 문의드립니다”처럼 간단하지만 예의 있는 표현을 기본으로 두면 대부분의 회사 상황에서 무난하게 사용할 수 있습니다.</p>
+        </div>
+        <div>
+          <h2>병가와 지각 문장은 회사 규정을 먼저 확인하세요</h2>
+          <p>병가, 지각, 조퇴는 회사마다 보고 방식이 다릅니다. 메신저로 먼저 알리고 근태 시스템에 등록하는 회사도 있고, 팀장 승인 후 처리하는 회사도 있습니다. 이 도구는 문장 초안을 만들어주는 용도이므로 실제 사용 전 날짜, 시간, 증빙 필요 여부를 확인하는 것이 좋습니다.</p>
+        </div>
+      </section>
+
+      <section class="recent-section">
+        <div class="recent-head">
+          <h2>최근 생성</h2>
+          <button type="button" class="ghost-button" id="clearButton">비우기</button>
+        </div>
+        <div id="recentList" class="recent-list">
+          <p class="muted">아직 저장된 생성 결과가 없습니다.</p>
+        </div>
+      </section>
+
+      <section class="ad-slot" aria-label="광고 영역">
+        <span>Sponsored</span>
+        <p>광고 승인 후 이 영역에 광고가 표시됩니다.</p>
+      </section>
+    </main>
+
+    <footer>
+      <span>연차 사유 생성기 · 만든이 잇츠에이아이</span>
+      <nav aria-label="하단 메뉴">
+        <a href="./about.html">소개</a>
+        <a href="./privacy.html">개인정보처리방침</a>
+        <a href="./terms.html">이용약관</a>
+        <a href="./contact.html">문의</a>
+      </nav>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

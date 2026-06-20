@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://annual-leave-reason-generator.vercel.app/sitemap.xml
