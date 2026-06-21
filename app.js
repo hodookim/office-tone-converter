@@ -96,7 +96,7 @@ async function buildResults() {
     hasConverted = false;
     lastResults = [];
     updateCopyAllState();
-    renderEmpty("문장을 입력하면 AI가 상황을 알아서 판단합니다.", "톤과 형식만 고르면 바로 보낼 수 있는 문장 2개를 만들어드려요.");
+    renderEmpty("문장을 입력하면 AI가 상황을 알아서 판단합니다.", "무난한 실전형과 원문의 캐릭터를 살린 센스형, 두 가지로 만들어드려요.");
     return;
   }
 
@@ -368,7 +368,7 @@ clearButton.addEventListener("click", () => {
   lastResults = [];
   updateCopyAllState();
   updateCount();
-  renderEmpty("문장을 입력하면 AI가 상황을 알아서 판단합니다.", "톤과 형식만 고르면 바로 보낼 수 있는 문장 2개를 만들어드려요.");
+  renderEmpty("문장을 입력하면 AI가 상황을 알아서 판단합니다.", "무난한 실전형과 원문의 캐릭터를 살린 센스형, 두 가지로 만들어드려요.");
   sourceText.focus();
 });
 
