@@ -3,6 +3,8 @@ const usageByVisitor = new Map();
 
 const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 5);
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.1-8b-instruct";
+const NVIDIA_BASE_URL = process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1";
 const MAX_TEXT_LENGTH = 500;
 const MAX_CACHE_ITEMS = 200;
 
@@ -26,7 +28,7 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 405, { error: "POST 요청만 가능합니다." });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY && !process.env.NVIDIA_API_KEY) {
     return sendJson(res, 503, { error: "AI 설정이 아직 연결되지 않았습니다." });
   }
 
@@ -59,7 +61,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const results = await convertWithGemini({ text, tone, format, intentHint: inferIntentHint(text) });
+    const results = await convertWithAvailableModel({ text, tone, format, intentHint: inferIntentHint(text) });
     pruneCache();
     cache.set(cacheKey, results);
 
@@ -75,6 +77,24 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+async function convertWithAvailableModel(payload) {
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      return await convertWithGemini(payload);
+    } catch (error) {
+      if (!process.env.NVIDIA_API_KEY) {
+        throw error;
+      }
+    }
+  }
+
+  if (process.env.NVIDIA_API_KEY) {
+    return convertWithNvidia(payload);
+  }
+
+  throw new Error("No AI provider configured");
+}
 
 async function convertWithGemini({ text, tone, format, intentHint }) {
   const prompt = [
@@ -149,6 +169,69 @@ async function convertWithGemini({ text, tone, format, intentHint }) {
     .slice(0, 2)
     .map((item, index) => ({
       title: item.title || ["바로 보내기", "조금 더 다듬기"][index],
+      text: item.text.trim(),
+    }));
+}
+
+async function convertWithNvidia({ text, tone, format, intentHint }) {
+  const prompt = [
+    "너는 한국 회사에서 바로 보낼 수 있는 업무 문장 변환기다.",
+    "사용자의 거친 말, 반말, 짜증, 농담, 민망한 표현을 회사에서 보낼 수 있는 표현으로 바꿔라.",
+    "사람 이름, 직급, 팀명, 제품명, 프로젝트명, 날짜, 시간, 숫자는 삭제하거나 일반화하지 말고 유지하라.",
+    "예: '대희야'는 '대희님,'으로 바꾼다. 입력에 없는 성씨나 직급은 만들지 마라.",
+    "결과는 2개만 만든다.",
+    "1번은 실제로 바로 보낼 수 있는 무난하고 안전한 문장이다.",
+    "2번은 회사에서 보낼 수 있는 선을 지키되, 원문의 감정과 말맛을 살린 센스 있는 문장이다.",
+    "센스형에는 짧은 업무용 비유나 펀치라인을 하나 넣어라. 상대를 모욕하지 말고 상황을 재치 있게 표현하라.",
+    "원문이 욕설이나 인신공격이어도 업무 지연, 자료 요청처럼 엉뚱한 주제로 바꾸지 마라. 원문의 실제 의도를 파악하라.",
+    "마크다운, 설명, 코드블록 없이 JSON만 반환하라.",
+    "",
+    `원문: ${text}`,
+    `분석 힌트: ${intentHint}`,
+    `톤: ${labels.tone[tone]}`,
+    `형식: ${labels.format[format]}`,
+    "",
+    '형식: {"results":[{"title":"무난하게 보내기","text":"..."},{"title":"센스 있게 보내기","text":"..."}]}',
+  ].join("\n");
+
+  const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: NVIDIA_MODEL,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.55,
+      max_tokens: 360,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`NVIDIA API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const raw = data.choices?.[0]?.message?.content || "";
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("NVIDIA returned invalid JSON");
+  }
+
+  const results = Array.isArray(parsed.results) ? parsed.results : [];
+  return results
+    .filter((item) => item && typeof item.text === "string" && item.text.trim())
+    .slice(0, 2)
+    .map((item, index) => ({
+      title: item.title || ["무난하게 보내기", "센스 있게 보내기"][index],
       text: item.text.trim(),
     }));
 }
