@@ -1902,6 +1902,14 @@ textarea:focus {
   min-height: 44px;
   border-radius: 14px;
   font-weight: 850;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding-left: 30px;
+  padding-right: 30px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .chip.active,

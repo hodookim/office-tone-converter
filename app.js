@@ -277,8 +277,7 @@ function renderLimitState() {
   card.className = "limit-state";
   card.innerHTML = `
     <strong>오늘 무료 AI 변환 횟수를 모두 사용했습니다.</strong>
-    <span>내일 다시 이용하거나, 추후 광고 시청 후 추가 생성 기능을 붙일 수 있습니다.</span>
-    <button type="button" disabled>광고 보고 2회 추가 생성</button>
+    <span>내일 다시 이용해주세요. 안정화 후 추가 생성 기능을 검토하겠습니다.</span>
   `;
   resultList.append(card);
 }
