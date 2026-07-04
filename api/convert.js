@@ -3,7 +3,7 @@ const usageByVisitor = new Map();
 
 const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 5);
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
-const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.1-8b-instruct";
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.1-70b-instruct";
 const NVIDIA_BASE_URL = process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1";
 const MAX_TEXT_LENGTH = 500;
 const MAX_CACHE_ITEMS = 200;
@@ -184,6 +184,9 @@ async function convertWithNvidia({ text, tone, format, intentHint }) {
     "2번은 회사에서 보낼 수 있는 선을 지키되, 원문의 감정과 말맛을 살린 센스 있는 문장이다.",
     "센스형에는 짧은 업무용 비유나 펀치라인을 하나 넣어라. 상대를 모욕하지 말고 상황을 재치 있게 표현하라.",
     "원문이 욕설이나 인신공격이어도 업무 지연, 자료 요청처럼 엉뚱한 주제로 바꾸지 마라. 원문의 실제 의도를 파악하라.",
+    "'왜사냐', '왜 살아', '생각은 하냐' 같은 표현은 생존 질문이 아니라 상대의 판단이나 행동을 이해하기 어렵다는 강한 비판이다. 절대 진행 상황 확인, 업무 지연, 자료 요청으로 바꾸지 마라.",
+    "'눈 없냐', '안 보이냐' 같은 표현은 시력 문제가 아니라 누락된 검토 사항을 다시 확인해 달라는 뜻이다.",
+    "'말귀 못 알아듣냐', '몇 번을 말하냐' 같은 표현은 전달 내용이 반영되지 않았다는 불만이다.",
     "마크다운, 설명, 코드블록 없이 JSON만 반환하라.",
     "",
     `원문: ${text}`,
