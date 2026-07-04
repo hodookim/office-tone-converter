@@ -519,6 +519,13 @@ html[data-theme="dark"] .chip.active {
   line-height: 1.45;
 }
 
+.model-note {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .primary-button:hover,
 .copy-button:hover {
   transform: translateY(-1px);

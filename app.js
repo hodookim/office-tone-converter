@@ -15,7 +15,7 @@ const riskMeter = document.querySelector("#riskMeter");
 const riskBadge = document.querySelector("#riskBadge");
 const riskReason = document.querySelector("#riskReason");
 
-const RECENT_KEY = "office-tone-recent";
+const RECENT_KEY = "office-tone-recent-v2";
 const THEME_KEY = "office-tone-theme";
 const PRODUCTION_API_ORIGIN = "https://office-tone-converter.vercel.app";
 let hasConverted = false;
@@ -95,12 +95,46 @@ async function requestAiResults(raw, audience, tone, format) {
 
   return {
     risk: normalizeRisk(data.risk),
-    results: data.results.slice(0, 3).map((item, index) => ({
-      title: item.title || ["안전한 표현", "부드러운 표현", "단호한 표현"][index],
+    results: pickResultsForTone(data.results.slice(0, 5).map((item, index) => ({
+      title: item.title || ["정중한 표현", "부드러운 표현", "단호한 표현", "짧은 표현", "센스형 표현"][index],
       text: item.text,
-    })),
+    })), tone),
     warning: data.warning,
   };
+}
+
+function pickResultsForTone(results, tone) {
+  if (!Array.isArray(results) || results.length === 0) return [];
+
+  const toneIndex = {
+    polite: 0,
+    soft: 1,
+    firm: 2,
+    short: 3,
+  };
+  const titleByTone = {
+    polite: "정중한 표현",
+    soft: "부드러운 표현",
+    firm: "단호한 표현",
+    short: "짧은 표현",
+  };
+
+  const selectedIndex = toneIndex[tone] ?? 0;
+  const selected = results[selectedIndex] || results[0];
+  const sense = pickSenseResult(results, selectedIndex, selected?.text);
+
+  return [
+    { ...selected, title: titleByTone[tone] || selected.title },
+    { ...sense, title: "센스형 표현" },
+  ].filter((item) => item?.text);
+}
+
+function pickSenseResult(results, selectedIndex, selectedText) {
+  const explicit = results.find((item, index) => index !== selectedIndex && /센스|위트|재치/.test(item.title || ""));
+  if (explicit) return explicit;
+
+  const fallback = results[4] || results.find((item, index) => index !== selectedIndex && item.text !== selectedText) || results[selectedIndex] || results[0];
+  return fallback;
 }
 
 function getApiUrl(path) {
@@ -141,7 +175,7 @@ async function buildResults() {
     lastResults = [];
     updateCopyAllState();
     renderRisk(null);
-    renderEmpty("문장을 입력하면 AI가 의도와 수위를 함께 판단합니다.", "바로 보낼 무난한 표현부터 속마음을 살린 표현까지 3가지로 만들어드려요.");
+    renderEmpty("문장을 입력하면 AI가 의도와 수위를 함께 판단합니다.", "선택한 톤 1개와 센스형 표현 1개를 함께 제안합니다.");
     return;
   }
 
@@ -430,7 +464,7 @@ clearButton.addEventListener("click", () => {
   renderRisk(null);
   updateCopyAllState();
   updateCount();
-  renderEmpty("문장을 입력하면 AI가 의도와 수위를 함께 판단합니다.", "바로 보낼 무난한 표현부터 속마음을 살린 표현까지 3가지로 만들어드려요.");
+  renderEmpty("문장을 입력하면 AI가 의도와 수위를 함께 판단합니다.", "선택한 톤 1개와 센스형 표현 1개를 함께 제안합니다.");
   sourceText.focus();
 });
 

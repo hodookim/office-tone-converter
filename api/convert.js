@@ -211,12 +211,12 @@ function buildPrompt({ text, audience, tone, format, intentHint }) {
     "결과는 반드시 한국어 JSON만 반환한다. 마크다운, 설명, 코드블록은 쓰지 않는다.",
     "",
     "핵심 규칙:",
-    "1. 원문에 있는 사람 이름, 호칭, 직급은 삭제하지 말고 자연스럽게 존칭으로 유지한다.",
+    "1. 원문에 있는 사람 이름, 호칭, 직급은 삭제하지 말고 자연스럽게 존칭으로 유지한다. 상대가 고객이나 거래처여도 이름이 있으면 '이름님'으로 살린다.",
     "2. 원문에 없는 회사명, 계약명, 일정, 업무 지연, 자료 요청 같은 사실을 새로 만들지 않는다.",
     "3. 욕설이나 인신공격은 제거하되, 사용자가 말하려던 핵심 불만은 유지한다.",
     "4. 너무 무난한 '확인 부탁드립니다'로 도망가지 말고 상황별로 구체적인 표현을 만든다.",
     "5. 결과는 실제 복사해서 보내도 되는 수준이어야 한다.",
-    "6. 두 번째 결과는 살짝 센스 있게 만들되, 상대를 조롱하거나 비꼬는 문장은 금지한다.",
+    "6. 다섯 번째 결과는 살짝 센스 있게 만들되, 상대를 조롱하거나 비꼬는 문장은 금지한다.",
     "7. '왜 사냐', '생각은 하냐', '뇌 있냐' 같은 말은 업무 지연이 아니라 상대 판단/태도에 대한 강한 불만으로 해석한다.",
     "8. '입냄새', '냄새', '위생'은 구강/개인 위생 관련 불편으로 해석한다.",
     "9. '말귀 못 알아듣냐', '몇 번을 말하냐'는 전달 내용이 제대로 반영되지 않았다는 불만으로 해석한다.",
@@ -224,7 +224,7 @@ function buildPrompt({ text, audience, tone, format, intentHint }) {
     "11. 예: '대희야 진짜 너 왜 사냐'는 '대희님, 이번 판단이나 대응 방식은 납득하기 어려운 부분이 있습니다'처럼 바꾼다. 절대 업무 지연, 일정 지연, 자료 요청으로 바꾸지 않는다.",
     "",
     "출력 형식:",
-    '{"risk":{"level":"low|medium|high","reason":"짧은 이유"},"results":[{"title":"안전한 표현","text":"..."},{"title":"부드러운 표현","text":"..."},{"title":"단호한 표현","text":"..."}]}',
+    '{"risk":{"level":"low|medium|high","reason":"짧은 이유"},"results":[{"title":"정중한 표현","text":"..."},{"title":"부드러운 표현","text":"..."},{"title":"단호한 표현","text":"..."},{"title":"짧은 표현","text":"..."},{"title":"센스형 표현","text":"..."}]}',
     "",
     `원문: ${text}`,
     `상대: ${labels.audience[audience]}`,
@@ -265,7 +265,7 @@ function buildFallbackResponse(originalText) {
       risk,
       results: [
         {
-          title: "안전한 표현",
+          title: "정중한 표현",
           text: `${target}, 이번 판단 기준이 조금 더 명확히 공유되면 좋겠습니다. 제가 이해한 방향과 차이가 있어 다시 한번 확인 부탁드립니다.`,
         },
         {
@@ -275,6 +275,43 @@ function buildFallbackResponse(originalText) {
         {
           title: "단호한 표현",
           text: `${target}, 현재 방향은 납득하기 어려운 부분이 있습니다. 진행 전에 판단 근거와 기준을 다시 확인해 주시면 감사하겠습니다.`,
+        },
+        {
+          title: "짧은 표현",
+          text: `${target}, 이번 판단 기준과 근거를 다시 한번 설명 부탁드립니다.`,
+        },
+        {
+          title: "센스형 표현",
+          text: `${target}, 제 머릿속 업무 나침반이 잠시 방향을 잃었습니다. 이번 판단 배경을 한 번만 더 공유해주시면 맞춰보겠습니다.`,
+        },
+      ],
+    };
+  }
+
+  if (/쫌생|좀생|쩨쩨|좁쌀|빡빡|융통성/.test(originalText.replace(/\s+/g, ""))) {
+    const target = name ? `${name}님` : "고객님";
+    return {
+      risk,
+      results: [
+        {
+          title: "정중한 표현",
+          text: `${target}, 이번 건은 원활한 진행을 위해 조금 더 유연한 방향으로 검토해주시면 감사하겠습니다.`,
+        },
+        {
+          title: "부드러운 표현",
+          text: `${target}, 세부 기준도 중요하지만 이번 건은 전체 흐름을 보며 조금 더 유연하게 논의해보면 좋겠습니다.`,
+        },
+        {
+          title: "단호한 표현",
+          text: `${target}, 현재 기준만으로는 진행이 다소 어려워질 수 있습니다. 현실적인 조율 방안을 함께 검토 부탁드립니다.`,
+        },
+        {
+          title: "짧은 표현",
+          text: `${target}, 원활한 진행을 위해 조금 더 유연한 검토 부탁드립니다.`,
+        },
+        {
+          title: "센스형 표현",
+          text: `${target}, 이번 건은 줄자보다 나침반이 필요한 상황 같습니다. 큰 방향 안에서 유연하게 맞춰보면 좋겠습니다.`,
         },
       ],
     };
@@ -286,7 +323,7 @@ function buildFallbackResponse(originalText) {
       risk,
       results: [
         {
-          title: "안전한 표현",
+          title: "정중한 표현",
           text: `${target}, 회의 중 개인 위생과 관련해 다소 민감한 부분이 느껴져 조심스럽게 말씀드립니다. 서로 편한 회의 환경을 위해 한 번만 신경 써주시면 감사하겠습니다.`,
         },
         {
@@ -297,6 +334,14 @@ function buildFallbackResponse(originalText) {
           title: "단호한 표현",
           text: `${target}, 대면 회의 시 개인 위생 관련해 불편함이 반복되고 있습니다. 원활한 소통을 위해 개선 부탁드립니다.`,
         },
+        {
+          title: "짧은 표현",
+          text: `${target}, 대면 대화 시 개인 위생 관련해 조금만 신경 써주시면 감사하겠습니다.`,
+        },
+        {
+          title: "센스형 표현",
+          text: `${target}, 회의 집중도를 위해 아주 조심스럽게 말씀드립니다. 가까이 대화할 때 서로 편한 환경이 되도록 조금만 신경 써주시면 좋겠습니다.`,
+        },
       ],
     };
   }
@@ -306,7 +351,7 @@ function buildFallbackResponse(originalText) {
     risk,
     results: [
       {
-        title: "안전한 표현",
+        title: "정중한 표현",
         text: `${target}, 이 부분은 조금 더 신중하게 조율이 필요해 보입니다. 가능하실 때 다시 한번 확인 부탁드립니다.`,
       },
       {
@@ -317,13 +362,21 @@ function buildFallbackResponse(originalText) {
         title: "단호한 표현",
         text: `${target}, 현재 내용은 그대로 진행하기 어렵습니다. 기준에 맞게 다시 조정 부탁드립니다.`,
       },
+      {
+        title: "짧은 표현",
+        text: `${target}, 이 부분은 재확인이 필요해 보입니다. 다시 검토 부탁드립니다.`,
+      },
+      {
+        title: "센스형 표현",
+        text: `${target}, 서로 다른 방향을 보고 있는 것 같아 한 번만 좌표를 맞춰보면 좋겠습니다.`,
+      },
     ],
   };
 }
 
 function shouldUseGuidedFallback(text) {
   const normalized = String(text).replace(/\s+/g, "");
-  return /왜사|뭐하러사|생각.*하|뇌.*있|정신.*있|입냄새|냄새|구강|위생|악취|말귀|몇번.*말|못알아|또말/.test(normalized);
+  return /왜사|뭐하러사|생각.*하|뇌.*있|정신.*있|쫌생|좀생|쩨쩨|좁쌀|빡빡|융통성|입냄새|냄새|구강|위생|악취|말귀|몇번.*말|못알아|또말/.test(normalized);
 }
 
 function extractRecipientName(text) {
@@ -442,10 +495,10 @@ function inferIntentHint(text) {
 
 function estimateRisk(text) {
   const normalized = text.replace(/\s+/g, "");
-  if (/씨발|병신|미친|꺼져|죽|왜사|입냄새|냄새|뇌|말귀|멍청|한심/.test(normalized)) {
+  if (/씨발|병신|미친|꺼져|죽|왜사|입냄새|냄새|뇌|말귀|멍청|한심|쫌생|좀생|쩨쩨|좁쌀/.test(normalized)) {
     return { level: "high", reason: "상대가 공격이나 모욕으로 받아들일 수 있는 표현이 포함되어 있습니다." };
   }
-  if (/왜|아직|안됐|말이안|무리|아닌|제일아닌|짜증|답답/.test(normalized)) {
+  if (/왜|아직|안됐|말이안|무리|아닌|제일아닌|짜증|답답|빡빡|융통성/.test(normalized)) {
     return { level: "medium", reason: "불만이나 압박으로 읽힐 수 있어 표현을 조정하는 편이 좋습니다." };
   }
   return { level: "low", reason: "큰 충돌 없이 전달할 수 있는 문장입니다." };
