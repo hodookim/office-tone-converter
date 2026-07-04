@@ -9,6 +9,13 @@ const MAX_TEXT_LENGTH = 500;
 const MAX_CACHE_ITEMS = 200;
 
 const labels = {
+  audience: {
+    boss: "상사",
+    coworker: "동료",
+    junior: "후배/직원",
+    vendor: "거래처",
+    customer: "고객",
+  },
   tone: {
     polite: "정중",
     soft: "부드럽게",
@@ -38,7 +45,9 @@ module.exports = async function handler(req, res) {
   } catch {
     return sendJson(res, 400, { error: "요청 형식이 올바르지 않습니다." });
   }
+
   const text = String(body.text || "").trim().slice(0, MAX_TEXT_LENGTH);
+  const audience = labels.audience[body.audience] ? body.audience : "boss";
   const tone = labels.tone[body.tone] ? body.tone : "polite";
   const format = labels.format[body.format] ? body.format : "general";
 
@@ -46,9 +55,9 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 400, { error: "변환할 문장이 없습니다." });
   }
 
-  const cacheKey = JSON.stringify({ text, tone, format });
+  const cacheKey = JSON.stringify({ text, audience, tone, format });
   if (cache.has(cacheKey)) {
-    return sendJson(res, 200, { results: cache.get(cacheKey), cached: true });
+    return sendJson(res, 200, { ...cache.get(cacheKey), cached: true });
   }
 
   const shouldLimit = !isLocalRequest(req);
@@ -61,15 +70,23 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const results = await convertWithAvailableModel({ text, tone, format, intentHint: inferIntentHint(text) });
+    const modelResult = await convertWithAvailableModel({
+      text,
+      audience,
+      tone,
+      format,
+      intentHint: inferIntentHint(text),
+    });
+    const payload = normalizeModelResponse(modelResult, text);
+
     pruneCache();
-    cache.set(cacheKey, results);
+    cache.set(cacheKey, payload);
 
     if (shouldLimit) {
       incrementUsage(visitorKey);
     }
 
-    return sendJson(res, 200, { results, cached: false });
+    return sendJson(res, 200, { ...payload, cached: false });
   } catch (error) {
     return sendJson(res, 502, {
       error: "AI 변환이 잠시 불안정합니다.",
@@ -96,39 +113,7 @@ async function convertWithAvailableModel(payload) {
   throw new Error("No AI provider configured");
 }
 
-async function convertWithGemini({ text, tone, format, intentHint }) {
-  const prompt = [
-    "너는 한국 회사에서 바로 보낼 수 있는 업무 문장 변환기다.",
-    "사용자의 거친 표현, 애매한 표현, 감정 섞인 표현을 실무적인 한국어로 바꿔라.",
-    "원문의 핵심 의미와 대상은 반드시 유지하라. 재촉, 거절, 일정 불가, 반박, 책임 범위, 자료 요청 같은 의도를 일반적인 확인 요청으로 뭉개지 마라.",
-    "원문에 사람 이름, 직급, 팀명, 제품명, 프로젝트명, 날짜, 시간, 숫자 같은 고유 대상이 있으면 절대 삭제하거나 익명화하거나 일반화하지 마라.",
-    "사람 이름과 호칭은 회사에서 자연스러운 형태로 유지하라. 예: '대희야'는 '대희님,'으로, '김부장아'는 '김 부장님,' 또는 '김부장님,'으로 바꿔 문장에 포함하라.",
-    "입력에 없는 성씨, 이름, 직급은 절대 붙이지 마라. 예: '부장아'는 '부장님,'으로 바꾸고 '김 부장님'처럼 성씨를 만들어내지 마라.",
-    "이름이 포함된 문장은 결과 2개 모두에 해당 이름을 포함해야 한다. 이름을 '담당자님', '관계자분', '팀원분'처럼 바꾸지 마라.",
-    "원문에 일정, 자료, 담당 범위, 완료 여부처럼 구체적인 대상이 있으면 결과에도 그 대상을 반영하라.",
-    "원문의 의도를 먼저 판단하되, 사용자에게 상황을 묻지 말고 스스로 추론하라.",
-    "선택된 톤과 형식을 가장 중요하게 반영하라.",
-    "원문의 말맛, 농담, 짜증, 민망함, 억울함 같은 캐릭터를 완전히 지우지 마라. 무색무취한 확인 요청이나 교과서 문장으로 만들지 마라.",
-    "입냄새, 체취, 소음, 지각, 실수처럼 민감하거나 불편한 핵심을 환기, 분위기, 컨디션 같은 다른 문제로 돌려 말하지 마라. 공격적이지 않은 업무 표현으로 바꾸되 무엇을 말하는지는 분명해야 한다.",
-    "결과 1은 실제 회사에서 바로 보낼 수 있는 무난한 실전형으로 작성하라.",
-    "결과 2는 회사에서 보낼 수 있는 선을 지키면서 원문의 웃긴 핵심과 솔직한 뉘앙스를 살린 센스형으로 작성하라.",
-    "센스형에는 원문의 감정을 보여주는 짧은 업무용 비유나 펀치라인을 반드시 하나 넣어라. 예: '제 상식이 잠시 로그아웃했습니다', '이 판단은 결재선에서 길을 잃은 것 같습니다'. 매번 상황에 맞게 새로 만들고 무난형을 단순히 바꿔 쓰지 마라.",
-    "강한 욕설이나 인신공격은 센스형에서 상대를 공격하지 않는 재치 있는 비유로 치환하되, 불만의 강도는 약하게 만들지 마라.",
-    "센스형도 비꼼, 모욕, 공격, 성희롱으로 보이면 안 된다. 유머는 표현의 재치로 만들고 상대를 깎아내리지 마라.",
-    "과장된 사과, 비굴한 표현, 이모지, 마크다운은 쓰지 마라.",
-    "회사 기밀처럼 보이는 세부 정보는 새로 만들거나 추측하지 마라.",
-    "아래 분석 힌트가 있으면 그 힌트를 우선하라. 단, 원문에 없는 내용을 지어내지 마라.",
-    "결과는 JSON만 반환한다. 다른 설명은 하지 마라.",
-    "",
-    `원문: ${text}`,
-    `분석 힌트: ${intentHint}`,
-    `톤: ${labels.tone[tone]}`,
-    `형식: ${labels.format[format]}`,
-    "",
-    "첫 번째 제목은 '무난하게 보내기', 두 번째 제목은 '센스 있게 보내기'로 정확히 써라.",
-    '형식: {"results":[{"title":"무난하게 보내기","text":"..."},{"title":"센스 있게 보내기","text":"..."}]}',
-  ].join("\n");
-
+async function convertWithGemini(payload) {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
@@ -138,12 +123,12 @@ async function convertWithGemini({ text, tone, format, intentHint }) {
         contents: [
           {
             role: "user",
-            parts: [{ text: prompt }],
+            parts: [{ text: buildPrompt(payload) }],
           },
         ],
         generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 320,
+          temperature: 0.68,
+          maxOutputTokens: 720,
           responseMimeType: "application/json",
         },
       }),
@@ -155,48 +140,10 @@ async function convertWithGemini({ text, tone, format, intentHint }) {
   }
 
   const data = await response.json();
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Gemini returned invalid JSON");
-  }
-  const results = Array.isArray(parsed.results) ? parsed.results : [];
-
-  return results
-    .filter((item) => item && typeof item.text === "string" && item.text.trim())
-    .slice(0, 2)
-    .map((item, index) => ({
-      title: item.title || ["바로 보내기", "조금 더 다듬기"][index],
-      text: item.text.trim(),
-    }));
+  return parseModelJson(data.candidates?.[0]?.content?.parts?.[0]?.text || "", payload.text);
 }
 
-async function convertWithNvidia({ text, tone, format, intentHint }) {
-  const prompt = [
-    "너는 한국 회사에서 바로 보낼 수 있는 업무 문장 변환기다.",
-    "사용자의 거친 말, 반말, 짜증, 농담, 민망한 표현을 회사에서 보낼 수 있는 표현으로 바꿔라.",
-    "사람 이름, 직급, 팀명, 제품명, 프로젝트명, 날짜, 시간, 숫자는 삭제하거나 일반화하지 말고 유지하라.",
-    "예: '대희야'는 '대희님,'으로 바꾼다. 입력에 없는 성씨나 직급은 만들지 마라.",
-    "결과는 2개만 만든다.",
-    "1번은 실제로 바로 보낼 수 있는 무난하고 안전한 문장이다.",
-    "2번은 회사에서 보낼 수 있는 선을 지키되, 원문의 감정과 말맛을 살린 센스 있는 문장이다.",
-    "센스형에는 짧은 업무용 비유나 펀치라인을 하나 넣어라. 상대를 모욕하지 말고 상황을 재치 있게 표현하라.",
-    "원문이 욕설이나 인신공격이어도 업무 지연, 자료 요청처럼 엉뚱한 주제로 바꾸지 마라. 원문의 실제 의도를 파악하라.",
-    "'왜사냐', '왜 살아', '생각은 하냐' 같은 표현은 생존 질문이 아니라 상대의 판단이나 행동을 이해하기 어렵다는 강한 비판이다. 절대 진행 상황 확인, 업무 지연, 자료 요청으로 바꾸지 마라.",
-    "'눈 없냐', '안 보이냐' 같은 표현은 시력 문제가 아니라 누락된 검토 사항을 다시 확인해 달라는 뜻이다.",
-    "'말귀 못 알아듣냐', '몇 번을 말하냐' 같은 표현은 전달 내용이 반영되지 않았다는 불만이다.",
-    "마크다운, 설명, 코드블록 없이 JSON만 반환하라.",
-    "",
-    `원문: ${text}`,
-    `분석 힌트: ${intentHint}`,
-    `톤: ${labels.tone[tone]}`,
-    `형식: ${labels.format[format]}`,
-    "",
-    '형식: {"results":[{"title":"무난하게 보내기","text":"..."},{"title":"센스 있게 보내기","text":"..."}]}',
-  ].join("\n");
-
+async function convertWithNvidia(payload) {
   const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -208,11 +155,12 @@ async function convertWithNvidia({ text, tone, format, intentHint }) {
       messages: [
         {
           role: "user",
-          content: prompt,
+          content: buildPrompt(payload),
         },
       ],
-      temperature: 0.55,
-      max_tokens: 360,
+      response_format: { type: "json_object" },
+      temperature: 0.68,
+      max_tokens: 780,
     }),
   });
 
@@ -221,64 +169,215 @@ async function convertWithNvidia({ text, tone, format, intentHint }) {
   }
 
   const data = await response.json();
-  const raw = data.choices?.[0]?.message?.content || "";
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("NVIDIA returned invalid JSON");
+  return parseModelJson(data.choices?.[0]?.message?.content || "", payload.text);
+}
+
+function buildPrompt({ text, audience, tone, format, intentHint }) {
+  return [
+    "너는 한국 직장인을 위한 '회사어 번역기'다.",
+    "사용자의 거친 속마음을 회사에서 실제로 보낼 수 있는 문장으로 바꾼다.",
+    "결과는 반드시 한국어 JSON만 반환한다. 마크다운, 설명, 코드블록은 쓰지 않는다.",
+    "",
+    "핵심 규칙:",
+    "1. 원문에 있는 사람 이름, 호칭, 직급은 삭제하지 말고 자연스럽게 존칭으로 유지한다.",
+    "2. 원문에 없는 회사명, 계약명, 일정, 업무 지연, 자료 요청 같은 사실을 새로 만들지 않는다.",
+    "3. 욕설이나 인신공격은 제거하되, 사용자가 말하려던 핵심 불만은 유지한다.",
+    "4. 너무 무난한 '확인 부탁드립니다'로 도망가지 말고 상황별로 구체적인 표현을 만든다.",
+    "5. 결과는 실제 복사해서 보내도 되는 수준이어야 한다.",
+    "6. 두 번째 결과는 살짝 센스 있게 만들되, 상대를 조롱하거나 비꼬는 문장은 금지한다.",
+    "7. '왜 사냐', '생각은 하냐', '뇌 있냐' 같은 말은 업무 지연이 아니라 상대 판단/태도에 대한 강한 불만으로 해석한다.",
+    "8. '입냄새', '냄새', '위생'은 구강/개인 위생 관련 불편으로 해석한다.",
+    "9. '말귀 못 알아듣냐', '몇 번을 말하냐'는 전달 내용이 제대로 반영되지 않았다는 불만으로 해석한다.",
+    "",
+    "출력 형식:",
+    '{"risk":{"level":"low|medium|high","reason":"짧은 이유"},"results":[{"title":"안전한 표현","text":"..."},{"title":"부드러운 표현","text":"..."},{"title":"단호한 표현","text":"..."}]}',
+    "",
+    `원문: ${text}`,
+    `상대: ${labels.audience[audience]}`,
+    `톤: ${labels.tone[tone]}`,
+    `형식: ${labels.format[format]}`,
+    `분석 힌트: ${intentHint}`,
+  ].join("\n");
+}
+
+function parseModelJson(raw, originalText) {
+  const cleaned = String(raw)
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    return buildFallbackResponse(originalText);
   }
 
-  const results = Array.isArray(parsed.results) ? parsed.results : [];
-  return results
-    .filter((item) => item && typeof item.text === "string" && item.text.trim())
-    .slice(0, 2)
-    .map((item, index) => ({
-      title: item.title || ["무난하게 보내기", "센스 있게 보내기"][index],
-      text: item.text.trim(),
-    }));
+  try {
+    return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+  } catch {
+    return buildFallbackResponse(originalText);
+  }
+}
+
+function buildFallbackResponse(originalText) {
+  const risk = estimateRisk(originalText);
+  const name = extractRecipientName(originalText);
+
+  if (/왜\s*사|뭐하러\s*사|생각.*하|뇌.*있/.test(originalText.replace(/\s+/g, ""))) {
+    const target = name ? `${name}님` : "해당 부분";
+    return {
+      risk,
+      results: [
+        {
+          title: "안전한 표현",
+          text: `${target}, 이번 판단 기준이 조금 더 명확히 공유되면 좋겠습니다. 제가 이해한 방향과 차이가 있어 다시 한번 확인 부탁드립니다.`,
+        },
+        {
+          title: "부드러운 표현",
+          text: `${target}, 이 부분은 제 머릿속 결재선이 잠시 멈춘 느낌이라 판단 배경을 한 번만 더 설명 부탁드립니다.`,
+        },
+        {
+          title: "단호한 표현",
+          text: `${target}, 현재 방향은 납득하기 어려운 부분이 있습니다. 진행 전에 판단 근거와 기준을 다시 확인해 주시면 감사하겠습니다.`,
+        },
+      ],
+    };
+  }
+
+  if (/입냄새|냄새|구강|위생|악취/.test(originalText.replace(/\s+/g, ""))) {
+    const target = name ? `${name}님` : "말씀드리기 조심스럽지만";
+    return {
+      risk,
+      results: [
+        {
+          title: "안전한 표현",
+          text: `${target}, 회의 중 개인 위생과 관련해 다소 민감한 부분이 느껴져 조심스럽게 말씀드립니다. 서로 편한 회의 환경을 위해 한 번만 신경 써주시면 감사하겠습니다.`,
+        },
+        {
+          title: "부드러운 표현",
+          text: `${target}, 말씀드리기 민망하지만 회의 때 가까이 대화하다 보니 조금 신경 쓰이는 부분이 있었습니다. 기분 나쁘지 않게 받아주시면 좋겠습니다.`,
+        },
+        {
+          title: "단호한 표현",
+          text: `${target}, 대면 회의 시 개인 위생 관련해 불편함이 반복되고 있습니다. 원활한 소통을 위해 개선 부탁드립니다.`,
+        },
+      ],
+    };
+  }
+
+  const target = name ? `${name}님` : "해당 내용";
+  return {
+    risk,
+    results: [
+      {
+        title: "안전한 표현",
+        text: `${target}, 이 부분은 조금 더 신중하게 조율이 필요해 보입니다. 가능하실 때 다시 한번 확인 부탁드립니다.`,
+      },
+      {
+        title: "부드러운 표현",
+        text: `${target}, 서로 오해 없이 맞춰가면 좋을 것 같습니다. 편하실 때 한 번 더 확인 부탁드립니다.`,
+      },
+      {
+        title: "단호한 표현",
+        text: `${target}, 현재 내용은 그대로 진행하기 어렵습니다. 기준에 맞게 다시 조정 부탁드립니다.`,
+      },
+    ],
+  };
+}
+
+function extractRecipientName(text) {
+  const trimmed = String(text).trim();
+  const addressed = trimmed.match(/^([가-힣]{2,6}?)(?:아|야|님|씨)(?:\s|,|!|\.|$|진짜|너|혹시|이거|저거)/);
+  const token = addressed || trimmed.match(/^([가-힣]{2,6})(?:에게|한테)(?:\s|,|!|\.|$)/);
+  if (!token) return "";
+
+  const candidate = token[1];
+  if (/^(오늘|내일|이번|자료|회의|업무|일정|메일|문서|파일)$/.test(candidate)) return "";
+  return candidate;
+}
+
+function normalizeModelResponse(parsed, originalText) {
+  const estimatedRisk = estimateRisk(originalText);
+  const risk = parsed?.risk && typeof parsed.risk === "object" ? parsed.risk : {};
+  const modelLevel = ["low", "medium", "high"].includes(risk.level) ? risk.level : estimatedRisk.level;
+  const level = pickHigherRisk(modelLevel, estimatedRisk.level);
+  const reason = typeof risk.reason === "string" && risk.reason.trim() ? risk.reason.trim() : estimatedRisk.reason;
+
+  const sourceResults = Array.isArray(parsed?.results) ? parsed.results : [];
+  const defaults = buildFallbackResponse(originalText).results;
+
+  const results = defaults.map((fallback, index) => {
+    const item = sourceResults[index];
+    const candidateText = typeof item?.text === "string" && item.text.trim() ? item.text.trim() : "";
+    const text = isUsableKoreanResult(candidateText) ? candidateText : fallback.text;
+    const title = typeof item?.title === "string" && item.title.trim() ? item.title.trim() : fallback.title;
+    return { title, text };
+  });
+
+  return { risk: { level, reason }, results };
+}
+
+function pickHigherRisk(a, b) {
+  const score = { low: 0, medium: 1, high: 2 };
+  return score[a] >= score[b] ? a : b;
+}
+
+function isUsableKoreanResult(text) {
+  if (!text) return false;
+  const unexpectedLatin = text.match(/[A-Za-z]{3,}/g) || [];
+  const allowed = new Set(["AI", "API", "URL", "PDF", "Excel"]);
+  return unexpectedLatin.every((word) => allowed.has(word));
 }
 
 function inferIntentHint(text) {
   const normalized = text.replace(/\s+/g, "");
 
-  if (/왜사냐|왜살아|뭐하러사냐|제정신이냐|생각이있냐|생각은하냐/.test(normalized)) {
-    return "상대의 존재나 생존을 묻는 질문이 아니라, 상대의 행동이나 판단을 도저히 이해하기 어렵다는 강한 비판이다. 업무 지연이나 진행 상황 확인으로 바꾸지 말고, 해당 행동의 판단 배경 설명과 재검토를 요구하는 문장으로 변환하라";
+  if (/왜사|뭐하러사|생각.*하|뇌.*있|정신.*있/.test(normalized)) {
+    return "상대의 판단이나 태도에 대한 강한 불만이다. 업무 지연이나 자료 요청으로 바꾸지 말고, 의사결정 과정과 판단 기준을 다시 확인해 달라는 표현으로 바꿔라.";
   }
 
-  if (/눈이없|안보이냐|눈뜨고|똑바로안보/.test(normalized)) {
-    return "상대가 중요한 내용이나 오류를 놓쳤다는 강한 지적이다. 시력 이야기가 아니라 누락된 검토 사항을 다시 확인해 달라는 문장으로 변환하라";
+  if (/입냄새|냄새|구강|위생|악취/.test(normalized)) {
+    return "상대의 위생 문제로 불편함을 느끼는 상황이다. 모욕하지 말고 개인 위생이나 회의 환경을 조심스럽게 언급해라.";
   }
 
-  if (/귀가없|말귀|말을못알아|몇번을말/.test(normalized)) {
-    return "이미 전달한 내용을 상대가 이해하거나 반영하지 않았다는 강한 불만이다. 전달 내용의 재확인과 정확한 반영을 요구하는 문장으로 변환하라";
+  if (/말귀|몇번.*말|못알아|이해.*못|또말/.test(normalized)) {
+    return "전달한 내용이 제대로 반영되지 않았다는 불만이다. 반복 안내와 핵심 내용 재확인을 요청하는 표현으로 바꿔라.";
   }
 
-  if (/일정|기한|마감|데드라인/.test(text) && /말이안|무리|어렵|불가능|안됩니다|안돼/.test(normalized)) {
-    return "일정이 비현실적이거나 진행이 어려워 일정 조정 또는 현실성 검토를 요청하는 문장";
+  if (/일정|기한|마감|데드라인/.test(text) && /말이안|무리|어려|불가|안됨|안돼/.test(normalized)) {
+    return "일정이 비현실적이거나 진행이 어렵다는 뜻이다. 일정 조정 또는 우선순위 재검토를 요청해라.";
   }
 
-  if (/제\s*일|내\s*일|담당|업무\s*범위/.test(text) && /아닌|아니|모르|왜/.test(text)) {
-    return "담당 범위가 아니거나 담당자 확인이 필요한 문장";
+  if (/담당|제일|내일|업무범위/.test(text) && /아닌|아니|모르|왜나/.test(normalized)) {
+    return "담당 범위가 아니거나 담당자 확인이 필요한 상황이다. 책임 회피처럼 보이지 않게 담당 범위 확인을 요청해라.";
   }
 
-  if (/왜|아직|언제|안됐|안되|지연/.test(text)) {
-    return "진행 상황 확인 또는 지연 사유 확인을 요청하는 문장";
-  }
-
-  if (/못|어렵|불가|안\s*됩니다|안\s*돼/.test(text)) {
-    return "일정 변경, 거절, 또는 진행 어려움을 알리는 문장";
+  if (/아직|언제|됐|안됐|지연/.test(text)) {
+    return "진행 상황 또는 지연 사유 확인이 필요한 상황이다.";
   }
 
   if (/자료|파일|문서|공유|보내/.test(text)) {
-    return "자료 요청 또는 공유 요청 문장";
+    return "자료 공유 또는 재전달 요청이다.";
   }
 
-  if (/아닌|리스크|문제|이상|틀린|반대/.test(text)) {
-    return "반박, 우려 제기, 또는 대안 검토 요청 문장";
+  if (/아닌|이상|문제|다시|반려/.test(text)) {
+    return "내용에 대한 우려, 반박, 수정 요청이다.";
   }
 
-  return "원문을 읽고 의도를 직접 판단";
+  return "원문을 읽고 의도를 직접 판단해라.";
+}
+
+function estimateRisk(text) {
+  const normalized = text.replace(/\s+/g, "");
+  if (/씨발|병신|미친|꺼져|죽|왜사|입냄새|냄새|뇌|말귀|멍청|한심/.test(normalized)) {
+    return { level: "high", reason: "상대가 공격이나 모욕으로 받아들일 수 있는 표현이 포함되어 있습니다." };
+  }
+  if (/왜|아직|안됐|말이안|무리|아닌|제일아닌|짜증|답답/.test(normalized)) {
+    return { level: "medium", reason: "불만이나 압박으로 읽힐 수 있어 표현을 조정하는 편이 좋습니다." };
+  }
+  return { level: "low", reason: "큰 충돌 없이 전달할 수 있는 문장입니다." };
 }
 
 function getVisitorKey(req) {

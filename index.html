@@ -12,12 +12,13 @@
     <meta name="robots" content="index, follow" />
     <meta name="google-adsense-account" content="ca-pub-6063034290894650" />
     <link rel="canonical" href="https://office-tone-converter.vercel.app/" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <meta property="og:title" content="회사어 번역기 | 잇츠에이아이" />
-    <meta property="og:description" content="재촉, 거절, 반박, 요청처럼 말하기 애매한 업무 문장을 바로 보낼 수 있는 표현으로 바꿔드립니다." />
+    <meta property="og:description" content="속마음은 그대로, 표현은 프로답게. 거절, 독촉, 반박, 요청 문장을 회사에서 보낼 수 있는 말로 바꿔드립니다." />
     <meta property="og:url" content="https://office-tone-converter.vercel.app/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="회사어 번역기" />
-    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6063034290894650" crossorigin="anonymous"></script>
     <script type="application/ld+json">
       {
@@ -30,15 +31,8 @@
         "operatingSystem": "Web",
         "inLanguage": "ko-KR",
         "description": "말하기 애매한 업무 문장을 정중하고 명확한 표현으로 바꿔주는 무료 AI 회사어 번역기입니다.",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "KRW"
-        },
-        "publisher": {
-          "@type": "Organization",
-          "name": "잇츠에이아이"
-        }
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" },
+        "publisher": { "@type": "Organization", "name": "잇츠에이아이" }
       }
     </script>
     <link rel="stylesheet" href="./styles.css" />
@@ -48,56 +42,42 @@
       <section class="workspace" aria-label="회사어 번역기">
         <header class="topbar">
           <div class="brand-block">
-            <span class="brand-mark" aria-hidden="true">AI</span>
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
             <p class="eyebrow">ITS AI · Office Tone Converter</p>
             <h1>회사어 번역기</h1>
-            <p class="tagline">말하기 애매한 업무 문장을 바로 보낼 수 있는 표현으로 정리합니다.</p>
+            <p class="tagline">속마음은 그대로, 표현은 프로답게. 말하기 애매한 문장을 보내기 좋은 업무 문장으로 정리합니다.</p>
           </div>
           <div class="top-actions">
             <div class="theme-toggle" role="group" aria-label="화면 테마 선택">
-              <button class="theme-option active" type="button" data-theme="auto" aria-label="기기 설정에 맞추기">
-                <span aria-hidden="true">◐</span>
-                자동
-              </button>
-              <button class="theme-option" type="button" data-theme="light" aria-label="라이트 모드">
-                <span aria-hidden="true">☀</span>
-                밝게
-              </button>
-              <button class="theme-option" type="button" data-theme="dark" aria-label="다크 모드">
-                <span aria-hidden="true">☾</span>
-                어둡게
-              </button>
+              <button class="theme-option active" type="button" data-theme="auto" aria-label="기기 설정에 맞추기"><span aria-hidden="true">◐</span> 자동</button>
+              <button class="theme-option" type="button" data-theme="light" aria-label="밝은 모드"><span aria-hidden="true">☀</span> 밝게</button>
+              <button class="theme-option" type="button" data-theme="dark" aria-label="어두운 모드"><span aria-hidden="true">☾</span> 어둡게</button>
             </div>
             <button class="ghost-button" id="clearButton" type="button">초기화</button>
           </div>
         </header>
 
         <section class="value-strip" aria-label="서비스 특징">
-          <div>
-            <strong>2가지 결과</strong>
-            <span>무난형과 센스형을 함께 제안합니다.</span>
-          </div>
-          <div>
-            <strong>바로 복사</strong>
-            <span>메일, 메신저, 보고 문장에 맞게 정리합니다.</span>
-          </div>
-          <div>
-            <strong>무료 사용</strong>
-            <span>사용량이 많을 때는 잠시 제한될 수 있습니다.</span>
-          </div>
+          <div><strong>상대별 맞춤</strong><span>상사, 동료, 후배, 거래처, 고객에 맞춰 말투를 조정합니다.</span></div>
+          <div><strong>위험도 체크</strong><span>원문이 얼마나 공격적으로 보일 수 있는지 먼저 알려줍니다.</span></div>
+          <div><strong>3가지 결과</strong><span>안전한 표현, 부드러운 표현, 단호한 표현을 함께 제안합니다.</span></div>
         </section>
 
         <div class="editor-grid">
           <section class="panel input-panel">
-            <div class="panel-head">
-              <h2>원문</h2>
-              <span id="charCount">0자</span>
+            <div class="panel-head"><h2>원문</h2><span id="charCount">0자</span></div>
+            <textarea id="sourceText" maxlength="500" placeholder="예: 부장아 입냄새 난다"></textarea>
+
+            <div class="control-block">
+              <p class="label">상대</p>
+              <div class="chip-grid audience-grid" id="audienceGroup" role="radiogroup" aria-label="상대 선택">
+                <button class="chip active" type="button" data-value="boss">상사</button>
+                <button class="chip" type="button" data-value="coworker">동료</button>
+                <button class="chip" type="button" data-value="junior">후배</button>
+                <button class="chip" type="button" data-value="vendor">거래처</button>
+                <button class="chip" type="button" data-value="customer">고객</button>
+              </div>
             </div>
-            <textarea
-              id="sourceText"
-              maxlength="500"
-              placeholder="예: 부장아 입냄새 난다"
-            ></textarea>
 
             <div class="control-block">
               <p class="label">톤</p>
@@ -119,32 +99,30 @@
               </div>
             </div>
 
-            <button class="primary-button" id="convertButton" type="button">변환하기</button>
+            <button class="primary-button" id="convertButton" type="button">회사어로 바꾸기</button>
             <p class="privacy-note">회사 기밀, 개인정보, 계약 내용은 입력하지 마세요.</p>
           </section>
 
           <section class="panel result-panel">
             <div class="panel-head result-head">
-              <div>
-                <h2>변환 결과</h2>
-                <span id="modeLabel">정중 · 일반</span>
-              </div>
+              <div><h2>추천 표현</h2><span id="modeLabel">상사 · 정중 · 일반</span></div>
               <button class="result-action" id="copyAllButton" type="button" disabled>전체 복사</button>
+            </div>
+            <div class="risk-meter" id="riskMeter" hidden>
+              <span class="risk-badge" id="riskBadge">위험도 보통</span>
+              <p id="riskReason">원문 표현을 분석 중입니다.</p>
             </div>
             <div class="result-list" id="resultList">
               <div class="empty-state">
-                <strong>문장을 입력하면 AI가 상황을 알아서 판단합니다.</strong>
-                <p>무난한 실전형과 원문의 캐릭터를 살린 센스형, 두 가지로 만들어드려요.</p>
+                <strong>문장을 입력하면 AI가 의도와 수위를 함께 판단합니다.</strong>
+                <p>바로 보낼 무난한 표현부터 속마음을 살린 표현까지 3가지로 만들어드려요.</p>
               </div>
             </div>
           </section>
         </div>
 
         <section class="quick-examples" aria-label="자주 쓰는 업무 문장">
-          <div class="section-label">
-            <strong>자주 쓰는 업무 문장</strong>
-            <span>눌러서 바로 테스트해보세요.</span>
-          </div>
+          <div class="section-label"><strong>자주 쓰는 문장</strong><span>눌러서 바로 테스트해보세요.</span></div>
           <button type="button" data-example="부장아 입냄새 난다">부장아 입냄새 난다</button>
           <button type="button" data-example="오늘 못합니다">오늘 못합니다</button>
           <button type="button" data-example="이건 좀 아닌 것 같은데요">이건 좀 아닌 것 같은데요</button>
@@ -156,56 +134,24 @@
         </section>
 
         <section class="recent-panel" aria-label="최근 변환">
-          <div class="recent-head">
-            <h2>최근 변환</h2>
-            <button class="text-button" id="clearRecentButton" type="button">비우기</button>
-          </div>
-          <div class="recent-list" id="recentList">
-            <p class="recent-empty">아직 저장된 변환이 없습니다.</p>
-          </div>
+          <div class="recent-head"><h2>최근 변환</h2><button class="text-button" id="clearRecentButton" type="button">비우기</button></div>
+          <div class="recent-list" id="recentList"><p class="recent-empty">아직 저장된 변환이 없습니다.</p></div>
         </section>
 
-        <aside class="ad-slot" aria-label="광고 영역">
-          <span>Sponsored</span>
-          <strong>광고 승인 후 이 영역에 광고가 표시됩니다.</strong>
-        </aside>
+        <aside class="ad-slot" aria-label="광고 영역"><span>Sponsored</span><strong>광고 승인 후 이 영역에 광고가 표시됩니다.</strong></aside>
 
         <section class="seo-section" aria-label="서비스 설명">
-          <div>
-            <h2>애매한 말을 업무용 문장으로</h2>
-            <p>재촉, 거절, 일정 조율, 반박, 자료 요청처럼 바로 말하기 어려운 표현을 더 정중하고 명확하게 정리합니다.</p>
-          </div>
-          <div>
-            <h2>복사해서 바로 보내는 결과</h2>
-            <p>원문을 입력하고 톤과 형식을 고르면 AI가 상황을 판단해 바로 사용할 수 있는 문장 2개를 제안합니다.</p>
-          </div>
-          <div>
-            <h2>직장인에게 맞춘 말맛</h2>
-            <p>단순히 예쁘게 고치는 것이 아니라 원문의 불만, 농담, 민망함을 업무용 표현으로 자연스럽게 바꿉니다.</p>
-          </div>
+          <div><h2>애매한 말을 업무 문장으로</h2><p>독촉, 거절, 일정 조율, 반박, 자료 요청처럼 바로 말하기 어려운 표현을 정중하고 명확하게 정리합니다.</p></div>
+          <div><h2>상대에 맞는 표현</h2><p>같은 말도 상사, 동료, 후배, 거래처, 고객에게는 다르게 전달되어야 합니다. 회사어 번역기는 상대에 맞춰 수위를 조절합니다.</p></div>
+          <div><h2>복사해서 바로 사용</h2><p>결과는 안전한 표현, 부드러운 표현, 단호한 표현으로 나누어 나오며 메일과 메신저에 바로 붙여넣기 좋게 구성합니다.</p></div>
         </section>
 
         <section class="guide-section" aria-label="업무 문장 가이드">
-          <div class="guide-head">
-            <h2>업무 문장 가이드</h2>
-            <p>검색으로 들어온 사용자도 읽을 수 있도록 실전 예시와 작성 팁을 정리했습니다.</p>
-          </div>
+          <div class="guide-head"><h2>업무 문장 가이드</h2><p>검색으로 들어온 사용자도 읽을 수 있도록 실전 예시와 작성 팁을 정리했습니다.</p></div>
           <div class="guide-list">
-            <a class="guide-card" href="./office-phrases.html">
-              <span>Guide 01</span>
-              <strong>자주 쓰는 회사어 모음 Top 10</strong>
-              <p>재촉, 거절, 확인 요청처럼 자주 쓰는 말을 업무용 표현으로 바꾸는 예시를 정리했습니다.</p>
-            </a>
-            <a class="guide-card" href="./business-email-tips.html">
-              <span>Guide 02</span>
-              <strong>직장인 비즈니스 이메일 작성 팁</strong>
-              <p>메일 제목, 첫 문장, 요청 문장, 마무리 표현을 더 명확하게 쓰는 방법을 소개합니다.</p>
-            </a>
-            <a class="guide-card" href="./polite-reminder.html">
-              <span>Guide 03</span>
-              <strong>재촉 문구를 정중하게 바꾸는 법</strong>
-              <p>상대가 부담을 덜 느끼면서도 일정과 요청 사항을 분명히 전달하는 문장 구성법입니다.</p>
-            </a>
+            <a class="guide-card" href="./office-phrases.html"><span>Guide 01</span><strong>자주 쓰는 회사어 모음 Top 10</strong><p>독촉, 거절, 확인 요청처럼 자주 쓰는 말을 업무용 표현으로 바꾸는 예시를 정리했습니다.</p></a>
+            <a class="guide-card" href="./business-email-tips.html"><span>Guide 02</span><strong>직장인 비즈니스 이메일 작성 팁</strong><p>메일 제목, 첫 문장, 요청 문장, 마무리 표현까지 명확하게 쓰는 방법을 소개합니다.</p></a>
+            <a class="guide-card" href="./polite-reminder.html"><span>Guide 03</span><strong>독촉 문구를 정중하게 바꾸는 법</strong><p>상대가 부담을 덜 느끼면서도 일정과 요청 사항을 분명히 전달하는 문장 구성법입니다.</p></a>
           </div>
         </section>
 
@@ -221,7 +167,6 @@
         </footer>
       </section>
     </main>
-
     <script src="./app.js"></script>
   </body>
 </html>

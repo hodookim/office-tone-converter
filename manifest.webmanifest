@@ -1,0 +1,19 @@
+{
+  "name": "회사어 번역기",
+  "short_name": "회사어",
+  "description": "말하기 애매한 업무 문장을 회사에서 보낼 수 있는 표현으로 바꿔주는 AI 문장 도구입니다.",
+  "lang": "ko-KR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f1715",
+  "theme_color": "#117861",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
