@@ -31,6 +31,13 @@ const labels = {
 };
 
 module.exports = async function handler(req, res) {
+  setCorsHeaders(res);
+
+  if (req.method === "OPTIONS") {
+    res.statusCode = 204;
+    return res.end();
+  }
+
   if (req.method !== "POST") {
     return sendJson(res, 405, { error: "POST 요청만 가능합니다." });
   }
@@ -482,8 +489,15 @@ function pruneCache() {
   if (oldestKey) cache.delete(oldestKey);
 }
 
+function setCorsHeaders(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
 function sendJson(res, status, data) {
   res.statusCode = status;
+  setCorsHeaders(res);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(data));
 }

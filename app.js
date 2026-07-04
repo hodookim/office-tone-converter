@@ -17,6 +17,7 @@ const riskReason = document.querySelector("#riskReason");
 
 const RECENT_KEY = "office-tone-recent";
 const THEME_KEY = "office-tone-theme";
+const PRODUCTION_API_ORIGIN = "https://office-tone-converter.vercel.app";
 let hasConverted = false;
 let lastResults = [];
 
@@ -107,11 +108,26 @@ function getApiUrl(path) {
     return `${window.OFFICE_TONE_API_BASE}${path}`;
   }
 
-  if (location.protocol === "capacitor:") {
-    return `https://office-tone-converter.vercel.app${path}`;
+  if (isNativeApp()) {
+    return `${PRODUCTION_API_ORIGIN}${path}`;
   }
 
   return path;
+}
+
+function isNativeApp() {
+  const capacitor = window.Capacitor;
+
+  if (capacitor?.isNativePlatform?.()) {
+    return true;
+  }
+
+  if (location.protocol === "capacitor:") {
+    return true;
+  }
+
+  const isLocalWebView = /^https?:$/.test(location.protocol) && location.hostname === "localhost" && /\bwv\b/i.test(navigator.userAgent);
+  return isLocalWebView;
 }
 
 async function buildResults() {
