@@ -98,6 +98,7 @@ async function requestAiResults(raw, audience, tone, format) {
       title: item.title || ["안전한 표현", "부드러운 표현", "단호한 표현"][index],
       text: item.text,
     })),
+    warning: data.warning,
   };
 }
 
@@ -137,7 +138,7 @@ async function buildResults() {
     hasConverted = true;
     lastResults = aiData.results;
     renderRisk(aiData.risk);
-    renderResults(aiData.results);
+    renderResults(aiData.results, aiData.warning);
     saveRecent({ text: raw, audience, tone, format, results: aiData.results, risk: aiData.risk, createdAt: Date.now() });
     renderRecent();
   } catch (error) {
@@ -172,8 +173,16 @@ function renderRisk(risk) {
   riskReason.textContent = risk.reason || copy[1];
 }
 
-function renderResults(items) {
+function renderResults(items, notice) {
   resultList.innerHTML = "";
+
+  if (notice) {
+    const note = document.createElement("p");
+    note.className = "result-notice";
+    note.textContent = notice;
+    resultList.append(note);
+  }
+
   items.forEach((item) => {
     const card = document.createElement("article");
     card.className = "result-card";

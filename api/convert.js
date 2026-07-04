@@ -69,6 +69,19 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  if (shouldUseGuidedFallback(text)) {
+    const payload = normalizeModelResponse(buildFallbackResponse(text), text);
+
+    pruneCache();
+    cache.set(cacheKey, payload);
+
+    if (shouldLimit) {
+      incrementUsage(visitorKey);
+    }
+
+    return sendJson(res, 200, { ...payload, cached: false, guided: true });
+  }
+
   try {
     const modelResult = await convertWithAvailableModel({
       text,
@@ -88,8 +101,20 @@ module.exports = async function handler(req, res) {
 
     return sendJson(res, 200, { ...payload, cached: false });
   } catch (error) {
-    return sendJson(res, 502, {
-      error: "AI 변환이 잠시 불안정합니다.",
+    const payload = normalizeModelResponse(buildFallbackResponse(text), text);
+
+    pruneCache();
+    cache.set(cacheKey, payload);
+
+    if (shouldLimit) {
+      incrementUsage(visitorKey);
+    }
+
+    return sendJson(res, 200, {
+      ...payload,
+      cached: false,
+      fallback: true,
+      warning: "AI 응답이 지연되어 안전 변환 결과로 대신 제공했습니다.",
       detail: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
@@ -289,6 +314,11 @@ function buildFallbackResponse(originalText) {
   };
 }
 
+function shouldUseGuidedFallback(text) {
+  const normalized = String(text).replace(/\s+/g, "");
+  return /왜사|뭐하러사|생각.*하|뇌.*있|정신.*있|입냄새|냄새|구강|위생|악취|말귀|몇번.*말|못알아|또말/.test(normalized);
+}
+
 function extractRecipientName(text) {
   const trimmed = String(text).trim();
   const addressed = trimmed.match(/^([가-힣]{2,6}?)(?:아|야|님|씨)(?:\s|,|!|\.|$|진짜|너|혹시|이거|저거)/);
@@ -306,6 +336,7 @@ function normalizeModelResponse(parsed, originalText) {
   const modelLevel = ["low", "medium", "high"].includes(risk.level) ? risk.level : estimatedRisk.level;
   const level = pickHigherRisk(modelLevel, estimatedRisk.level);
   const reason = typeof risk.reason === "string" && risk.reason.trim() ? risk.reason.trim() : estimatedRisk.reason;
+  const recipientName = extractRecipientName(originalText);
 
   const sourceResults = Array.isArray(parsed?.results) ? parsed.results : [];
   const defaults = buildFallbackResponse(originalText).results;
@@ -313,7 +344,7 @@ function normalizeModelResponse(parsed, originalText) {
   const results = defaults.map((fallback, index) => {
     const item = sourceResults[index];
     const candidateText = typeof item?.text === "string" && item.text.trim() ? item.text.trim() : "";
-    const text = isUsableKoreanResult(candidateText) ? candidateText : fallback.text;
+    const text = isUsableKoreanResult(candidateText) && isIntentAlignedResult(candidateText, originalText, recipientName) ? candidateText : fallback.text;
     const title = typeof item?.title === "string" && item.title.trim() ? item.title.trim() : fallback.title;
     return { title, text };
   });
@@ -331,6 +362,37 @@ function isUsableKoreanResult(text) {
   const unexpectedLatin = text.match(/[A-Za-z]{3,}/g) || [];
   const allowed = new Set(["AI", "API", "URL", "PDF", "Excel"]);
   return unexpectedLatin.every((word) => allowed.has(word));
+}
+
+function isIntentAlignedResult(text, originalText, recipientName) {
+  const original = originalText.replace(/\s+/g, "");
+  const result = text.replace(/\s+/g, "");
+
+  if (recipientName && !result.includes(recipientName)) {
+    return false;
+  }
+
+  if (/왜사|뭐하러사|생각.*하|뇌.*있|정신.*있/.test(original)) {
+    if (/업무.*지연|진행.*지연|일정.*지연|자료.*요청|자료.*공유|완료.*시점|기다려야/.test(result)) {
+      return false;
+    }
+
+    return /(판단|기준|근거|방향|대응|납득|이해|설명|확인|소통|태도)/.test(result);
+  }
+
+  if (/입냄새|냄새|구강|위생|악취/.test(original)) {
+    if (/업무.*지연|진행.*지연|일정.*지연|자료.*요청|완료.*시점/.test(result)) {
+      return false;
+    }
+
+    return /(위생|회의|대화|불편|신경|환경|조심스럽|민감)/.test(result);
+  }
+
+  if (/말귀|몇번.*말|못알아|이해.*못|또말/.test(original)) {
+    return !/자료.*요청|일정.*지연|업무.*지연/.test(result);
+  }
+
+  return true;
 }
 
 function inferIntentHint(text) {

@@ -6,13 +6,13 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0f1715",
-  "theme_color": "#117861",
+  "background_color": "#06175A",
+  "theme_color": "#06175A",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/assets/office-tone-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
