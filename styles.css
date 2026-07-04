@@ -80,6 +80,14 @@ body {
   color: var(--text);
 }
 
+body.native-ad-enabled {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+body.native-shell .ad-slot {
+  display: none;
+}
+
 html[data-theme="dark"] body {
   background:
     radial-gradient(circle at top left, rgba(95, 224, 197, 0.12), transparent 34%),

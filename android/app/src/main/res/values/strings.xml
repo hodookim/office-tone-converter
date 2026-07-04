@@ -4,4 +4,5 @@
     <string name="title_activity_main">회사어 번역기</string>
     <string name="package_name">ai.its.office.toneconverter</string>
     <string name="custom_url_scheme">ai.its.office.toneconverter</string>
+    <string name="admob_app_id">ca-app-pub-6063034290894650~3543932834</string>
 </resources>

@@ -18,6 +18,8 @@ const riskReason = document.querySelector("#riskReason");
 const RECENT_KEY = "office-tone-recent-v2";
 const THEME_KEY = "office-tone-theme";
 const PRODUCTION_API_ORIGIN = "https://office-tone-converter.vercel.app";
+const ADMOB_TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
+const ADMOB_BANNER_ID = window.OFFICE_TONE_ADMOB_BANNER_ID || ADMOB_TEST_BANNER_ID;
 let hasConverted = false;
 let lastResults = [];
 
@@ -162,6 +164,29 @@ function isNativeApp() {
 
   const isLocalWebView = /^https?:$/.test(location.protocol) && location.hostname === "localhost" && /\bwv\b/i.test(navigator.userAgent);
   return isLocalWebView;
+}
+
+async function initNativeAds() {
+  if (!isNativeApp()) return;
+
+  document.body.classList.add("native-shell");
+
+  const adMob = window.Capacitor?.Plugins?.AdMob;
+  if (!adMob) return;
+
+  try {
+    await adMob.initialize();
+    await adMob.showBanner({
+      adId: ADMOB_BANNER_ID,
+      adSize: "ADAPTIVE_BANNER",
+      position: "BOTTOM_CENTER",
+      margin: 0,
+      isTesting: ADMOB_BANNER_ID === ADMOB_TEST_BANNER_ID,
+    });
+    document.body.classList.add("native-ad-enabled");
+  } catch (error) {
+    console.info("AdMob banner skipped", error);
+  }
 }
 
 async function buildResults() {
@@ -473,3 +498,4 @@ updateCopyAllState();
 syncChipAccessibility();
 applyTheme(localStorage.getItem(THEME_KEY) || "auto");
 renderRecent();
+initNativeAds();

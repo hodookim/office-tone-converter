@@ -17,5 +17,8 @@
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "vercel": "^48.0.0"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.0.0"
   }
 }

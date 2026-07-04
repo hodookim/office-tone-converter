@@ -7,6 +7,8 @@
 - 앱에서는 `https://office-tone-converter.vercel.app/api/convert`를 호출합니다.
 - Android 패키지명은 `ai.its.office.toneconverter`입니다.
 - 앱 이름은 `회사어 번역기`입니다.
+- AdMob 앱 ID는 `ca-app-pub-6063034290894650~3543932834`로 설정되어 있습니다.
+- 현재 앱 배너 광고는 Google 테스트 광고 단위 ID로 연결되어 있습니다. 실제 출시 전 AdMob에서 배너 광고 단위 ID를 만든 뒤 `app.js`의 `ADMOB_BANNER_ID`를 교체해야 합니다.
 - Google Play 등록 정보 초안은 `store-assets/play-store-listing-ko.md`에 있습니다.
 - 데이터 보안 답변 초안은 `store-assets/data-safety-ko.md`에 있습니다.
 - 스크린샷 제작 계획은 `store-assets/screenshot-plan-ko.md`에 있습니다.
@@ -42,6 +44,18 @@ android.overridePathCheck=true
 powershell -ExecutionPolicy Bypass -File scripts\build-android-debug.ps1
 ```
 
+업로드 키 생성:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\create-android-upload-key.ps1
+```
+
+Play Console 업로드용 릴리즈 AAB 빌드:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-android-release.ps1
+```
+
 웹 번들 동기화:
 
 ```bash
@@ -72,7 +86,9 @@ cd android
 - 하루 무료 사용량 정책 결정
 - Play Console 개발자 계정 준비
 - 내부 테스트 트랙 업로드
-- 릴리스용 서명 키 생성 후 AAB 빌드
+- 릴리스용 업로드 키 백업
+- 실제 AdMob 배너 광고 단위 ID 발급 후 테스트 광고 ID 교체
+- AAB 업로드
 
 ## 주의
 
