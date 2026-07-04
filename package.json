@@ -4,12 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "vercel dev",
-    "deploy": "vercel"
+    "deploy": "vercel",
+    "mobile:prepare": "node scripts/build-mobile-web.js",
+    "mobile:sync": "npm run mobile:prepare && npx cap sync android",
+    "mobile:open": "npm run mobile:sync && npx cap open android"
   },
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "vercel": "^48.0.0"
   }
 }

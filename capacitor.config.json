@@ -1,0 +1,16 @@
+{
+  "appId": "ai.its.office.toneconverter",
+  "appName": "회사어 번역기",
+  "webDir": "mobile-web",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0f1715",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}

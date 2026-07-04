@@ -73,7 +73,7 @@ function cleanInput(text) {
 }
 
 async function requestAiResults(raw, audience, tone, format) {
-  const response = await fetch("/api/convert", {
+  const response = await fetch(getApiUrl("/api/convert"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: raw, audience, tone, format }),
@@ -99,6 +99,18 @@ async function requestAiResults(raw, audience, tone, format) {
       text: item.text,
     })),
   };
+}
+
+function getApiUrl(path) {
+  if (window.OFFICE_TONE_API_BASE) {
+    return `${window.OFFICE_TONE_API_BASE}${path}`;
+  }
+
+  if (location.protocol === "capacitor:") {
+    return `https://office-tone-converter.vercel.app${path}`;
+  }
+
+  return path;
 }
 
 async function buildResults() {

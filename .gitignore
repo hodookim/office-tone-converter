@@ -4,3 +4,8 @@ node_modules
 .env.local
 *.zip
 github-upload/
+mobile-web/
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
