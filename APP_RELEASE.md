@@ -36,6 +36,12 @@ android.overridePathCheck=true
 
 ## 자주 쓰는 명령
 
+디버그 APK 한 번에 빌드:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-android-debug.ps1
+```
+
 웹 번들 동기화:
 
 ```bash
