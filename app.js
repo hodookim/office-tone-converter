@@ -216,6 +216,7 @@ async function buildResults() {
     renderResults(aiData.results, aiData.warning);
     saveRecent({ text: raw, audience, tone, format, results: aiData.results, risk: aiData.risk, createdAt: Date.now() });
     renderRecent();
+    scrollToResults();
   } catch (error) {
     lastResults = [];
     updateCopyAllState();
@@ -236,6 +237,7 @@ function normalizeRisk(risk) {
 }
 
 function renderRisk(risk) {
+  const riskBarFill = document.querySelector("#riskBarFill");
   if (!risk) {
     riskMeter.hidden = true;
     riskMeter.dataset.level = "";
@@ -246,6 +248,10 @@ function renderRisk(risk) {
   riskMeter.dataset.level = risk.level;
   riskBadge.textContent = copy[0];
   riskReason.textContent = risk.reason || copy[1];
+  if (riskBarFill) {
+    const widths = { low: "33%", medium: "66%", high: "100%" };
+    riskBarFill.style.width = widths[risk.level] || "66%";
+  }
 }
 
 function renderResults(items, notice) {
@@ -258,9 +264,10 @@ function renderResults(items, notice) {
     resultList.append(note);
   }
 
-  items.forEach((item) => {
+  items.forEach((item, index) => {
     const card = document.createElement("article");
     card.className = "result-card";
+    card.style.animationDelay = `${index * 120}ms`;
     const header = document.createElement("header");
     const title = document.createElement("h3");
     const copy = document.createElement("button");
@@ -355,6 +362,7 @@ function renderRecent() {
     title.textContent = item.text;
     meta.textContent = `${labels.audience[item.audience] || "상사"} · ${labels.tone[item.tone] || item.tone} · ${labels.format[item.format] || item.format}`;
     button.append(title, meta);
+    attachSwipeDelete(button, item);
     button.addEventListener("click", () => {
       sourceText.value = item.text;
       setGroupValue(audienceGroup, item.audience || "boss");
@@ -380,6 +388,44 @@ function syncChipAccessibility() {
   });
 }
 
+function attachSwipeDelete(button, item) {
+  let startX = 0;
+  let currentX = 0;
+  let isDragging = false;
+
+  button.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX;
+    isDragging = true;
+  }, { passive: true });
+
+  button.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    currentX = e.touches[0].clientX;
+    const delta = currentX - startX;
+    if (delta < 0 && delta > -120) {
+      button.style.transform = `translateX(${delta}px)`;
+    }
+  }, { passive: true });
+
+  button.addEventListener("touchend", () => {
+    if (!isDragging) return;
+    isDragging = false;
+    const delta = currentX - startX;
+    if (delta < -70) {
+      button.classList.add("swipe-removing");
+      setTimeout(() => removeRecentItem(item), 250);
+    } else {
+      button.style.transform = "";
+    }
+  });
+}
+
+function removeRecentItem(item) {
+  const recent = getRecent().filter((entry) => !(entry.text === item.text && entry.tone === item.tone && entry.audience === item.audience));
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  renderRecent();
+}
+
 async function writeClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -399,6 +445,29 @@ async function writeClipboard(text) {
 function setLoading(isLoading) {
   convertButton.disabled = isLoading;
   convertButton.textContent = isLoading ? "변환 중..." : "회사어로 바꾸기";
+  if (isLoading) {
+    renderSkeletonLoading();
+  }
+}
+
+function renderSkeletonLoading() {
+  resultList.innerHTML = "";
+  for (let i = 0; i < 2; i++) {
+    const skeleton = document.createElement("article");
+    skeleton.className = "skeleton-card";
+    skeleton.innerHTML = `
+      <header class="skeleton-header">
+        <div class="skeleton-line skeleton-title"></div>
+        <div class="skeleton-line skeleton-btn"></div>
+      </header>
+      <div class="skeleton-body">
+        <div class="skeleton-line skeleton-text"></div>
+        <div class="skeleton-line skeleton-text"></div>
+        <div class="skeleton-line skeleton-text-short"></div>
+      </div>
+    `;
+    resultList.append(skeleton);
+  }
 }
 
 function updateCopyAllState() {
@@ -408,6 +477,15 @@ function updateCopyAllState() {
 
 function updateCount() {
   charCount.textContent = `${sourceText.value.length}자`;
+}
+
+function scrollToResults() {
+  if (window.innerWidth <= 820) {
+    const resultPanel = document.querySelector(".result-panel");
+    if (resultPanel) {
+      resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 }
 
 function updateModeLabel() {

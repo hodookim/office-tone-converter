@@ -212,12 +212,20 @@ async function convertWithNvidia(payload) {
 }
 
 function buildPrompt({ text, audience, tone, format, intentHint }) {
+  const toneGuide = {
+    polite: "정중하고 예의 바른 표현. 존경어 사용.",
+    soft: "부드럽고 배려 있는 표현. 상대 감정 고려.",
+    firm: "단호하되 공격적이지 않은 표현. 사실 중심.",
+    short: "간결하고 명확한 표현. 불필요한 수식어 제거.",
+  };
+
   return [
+    "## 역할",
     "너는 한국 직장인을 위한 '회사어 번역기'다.",
     "사용자의 거친 속마음을 회사에서 실제로 보낼 수 있는 문장으로 바꾼다.",
     "결과는 반드시 한국어 JSON만 반환한다. 마크다운, 설명, 코드블록은 쓰지 않는다.",
     "",
-    "핵심 규칙:",
+    "## 핵심 규칙",
     "1. 원문에 있는 사람 이름, 호칭, 직급은 삭제하지 말고 자연스럽게 존칭으로 유지한다. 상대가 고객이나 거래처여도 이름이 있으면 '이름님'으로 살린다.",
     "2. 원문에 없는 회사명, 계약명, 일정, 업무 지연, 자료 요청 같은 사실을 새로 만들지 않는다.",
     "3. 욕설이나 인신공격은 제거하되, 사용자가 말하려던 핵심 불만은 유지한다.",
@@ -230,13 +238,16 @@ function buildPrompt({ text, audience, tone, format, intentHint }) {
     "10. 원문이 공격적일수록 사실을 새로 만들지 말고, '판단 기준', '소통 방식', '업무 태도', '회의 환경'처럼 원문의 불만 축을 유지한다.",
     "11. 예: '대희야 진짜 너 왜 사냐'는 '대희님, 이번 판단이나 대응 방식은 납득하기 어려운 부분이 있습니다'처럼 바꾼다. 절대 업무 지연, 일정 지연, 자료 요청으로 바꾸지 않는다.",
     "12. 이름이 없다고 '거래처님', '상사님', '동료님', '후배님' 같은 상대 유형을 호칭처럼 쓰지 않는다.",
+    "13. 각 표현은 서로 다른 문장 구조를 사용해야 한다. 5개 결과가 비슷한 패턴이면 안 된다.",
+    "14. 자연스러운 한국어 비즈니스 표현을 사용한다. 번역투는 금지.",
     "",
-    "출력 형식:",
+    "## 출력 형식",
     '{"risk":{"level":"low|medium|high","reason":"짧은 이유"},"results":[{"title":"정중한 표현","text":"..."},{"title":"부드러운 표현","text":"..."},{"title":"단호한 표현","text":"..."},{"title":"짧은 표현","text":"..."},{"title":"센스형 표현","text":"..."}]}',
     "",
+    "## 입력 정보",
     `원문: ${text}`,
     `상대: ${labels.audience[audience]}`,
-    `톤: ${labels.tone[tone]}`,
+    `선택 톤: ${labels.tone[tone]} (${toneGuide[tone] || ""})`,
     `형식: ${labels.format[format]}`,
     `분석 힌트: ${intentHint}`,
   ].join("\n");
@@ -536,42 +547,69 @@ function getTargetName(text) {
   return name ? `${name}님` : "";
 }
 
+const SCENARIO_PATTERNS = [
+  { scenario: "hygiene", patterns: ["입냄새", "구강", "악취", "위생", "냄새난다", "몸냄새"], weight: 3 },
+  { scenario: "judgment_attitude", patterns: ["왜사", "뭐하러사", "생각을하", "생각이있", "뇌가있", "뇌있", "정신있", "제정신"], weight: 3 },
+  { scenario: "long_talk", patterns: ["말이너무길", "요점이뭔지", "핵심이뭔지", "같은얘기세번째", "길게만"], weight: 2 },
+  { scenario: "repeated", patterns: ["지난주에도", "또까먹", "저번에결정", "그렇게하지말자고", "몇번째야", "또모르", "또까먹", "말귀", "못알아", "또말", "몇번말"], weight: 2 },
+  { scenario: "unnecessary_work", patterns: ["시키고싶어서", "시키는일", "목적없이", "왜하는건지"], weight: 2 },
+  { scenario: "meeting_efficiency", patterns: ["회의는메일", "메일한통", "회의만계속", "일할시간이없"], weight: 2 },
+  { scenario: "contradiction", patterns: ["앞뒤안맞", "설명이부족", "이해를못한게아니라", "앞말뒷말"], weight: 2 },
+  { scenario: "late_change", patterns: ["지금와서바꾸", "계속바뀌", "자꾸말이바뀌", "기획이아니라즉흥", "자주바뀌면", "또바뀌"], weight: 2 },
+  { scenario: "overload", patterns: ["만능해결사", "왜다저한테", "제일이아니", "담당자한테", "떠넘기기", "다제가"], weight: 2 },
+  { scenario: "urgency", patterns: ["ASAP", "정확한마감", "본인이늦게", "급한게아니라", "퇴근10분전", "왜이제말씀", "진작말", "아직", "안됐", "언제됐", "지연", "마감"], weight: 1 },
+  { scenario: "quality", patterns: ["자료대충", "대충만든티", "퀄리티가"], weight: 2 },
+  { scenario: "approval_risk", patterns: ["보고승인", "승인하라는건", "무책임", "책임지고승인"], weight: 2 },
+  { scenario: "after_hours", patterns: ["퇴근이라는걸", "야근확정", "새벽에업무", "사람살려", "퇴근후"], weight: 2 },
+  { scenario: "dinner", patterns: ["회식보다", "팀워크에좋", "회식강요"], weight: 2 },
+  { scenario: "feedback_reaction", patterns: ["의견달라고", "왜삐지", "의견을묻", "피드백달라고"], weight: 2 },
+  { scenario: "review_rebuild", patterns: ["검토요청", "다시만들라는", "수정이아니라새프로젝트"], weight: 2 },
+  { scenario: "risky_direction", patterns: ["망할가능성", "이방향은망", "실제로는안돌아", "보고용으로예뻐", "아닌것같", "문제", "반려", "위험"], weight: 1 },
+  { scenario: "permission", patterns: ["권한이없어서", "몰라서못하는게아니라", "권한없"], weight: 2 },
+  { scenario: "decision_delay", patterns: ["결정은안하시고", "검토만", "결정을못", "결정지연"], weight: 2 },
+  { scenario: "fixed_answer", patterns: ["답정너", "답은정해", "결론있"], weight: 2 },
+  { scenario: "impossible_schedule", patterns: ["정신승리", "불가능", "AI한테시켜도힘", "일정말이안"], weight: 2 },
+  { scenario: "blame", patterns: ["히스토리", "제탓으로돌리", "책임전가"], weight: 2 },
+  { scenario: "resource_missing", patterns: ["필요한자료부터", "자료부터", "자료없이"], weight: 2 },
+  { scenario: "responsibility_shift", patterns: ["책임은제가", "결정은다른분", "책임결정"], weight: 2 },
+  { scenario: "team_risk", patterns: ["저희팀만욕", "팀만욕먹", "팀에책임"], weight: 2 },
+  { scenario: "founder_idea", patterns: ["대표님아이디어", "아무도반대못", "위에서내려"], weight: 2 },
+  { scenario: "smile_not_agree", patterns: ["웃고는있지만", "동의한다는뜻은아"], weight: 2 },
+  { scenario: "rigid_attitude", patterns: ["쫌생", "좀생", "쩨쩨", "좁쌀", "빡빡", "융통성"], weight: 2 },
+  { scenario: "not_working", patterns: ["실제론안돌아", "보고용으로만", "발표용"], weight: 2 },
+  { scenario: "ad_hoc", patterns: ["즉흥", "매번바뀌", "기획없이"], weight: 2 },
+];
+
 function detectScenario(text) {
   const normalized = String(text || "").replace(/\s+/g, "");
+  if (!normalized) return "general";
 
-  if (/입냄새|구강|악취/.test(normalized)) return "hygiene";
-  if (/말이너무길|요점이뭔지|같은얘기.*세번째/.test(normalized)) return "long_talk";
-  if (/지난주에도|또까먹|저번에.*결정|그렇게하지말자고|같은얘기.*세번째/.test(normalized)) return "repeated";
-  if (/시키고싶어서|시키는일|목적없이/.test(normalized)) return "unnecessary_work";
-  if (/회의는메일|메일한통|회의만계속|일할시간이없/.test(normalized)) return "meeting_efficiency";
-  if (/앞뒤.*안맞|설명이부족|이해를못한게아니라/.test(normalized)) return "contradiction";
-  if (/지금와서바꾸|계속.*바뀌|자꾸말이바뀌|기획이아니라즉흥|자주바뀌면/.test(normalized)) return "late_change";
-  if (/만능해결사|왜다저한테|제일이아니|담당자한테|떠넘기기/.test(normalized)) return "overload";
-  if (/ASAP|정확한마감|본인이늦게|급한게아니라|퇴근10분전|왜이제말씀|진작말/.test(normalized)) return "urgency";
-  if (/자료.*대충|대충만든티/.test(normalized)) return "quality";
-  if (/보고승인|승인하라는건|무책임/.test(normalized)) return "approval_risk";
-  if (/퇴근이라는걸|야근확정|새벽에업무|사람살려/.test(normalized)) return "after_hours";
-  if (/회식보다|팀워크에좋/.test(normalized)) return "dinner";
-  if (/의견달라고|왜삐지|의견을묻/.test(normalized)) return "feedback_reaction";
-  if (/검토요청|다시만들라는|수정이아니라새프로젝트/.test(normalized)) return "review_rebuild";
-  if (/망할가능성|이방향은망|실제로는안돌아|보고용으로예뻐/.test(normalized)) return "risky_direction";
-  if (/권한이없어서|몰라서못하는게아니라/.test(normalized)) return "permission";
-  if (/결정은안하시고|검토만|결정을못/.test(normalized)) return "decision_delay";
-  if (/답정너|답은정해/.test(normalized)) return "fixed_answer";
-  if (/정신승리|불가능|AI한테시켜도힘/.test(normalized)) return "impossible_schedule";
-  if (/히스토리|제탓으로돌리/.test(normalized)) return "blame";
-  if (/필요한자료부터|자료부터/.test(normalized)) return "resource_missing";
-  if (/책임은제가|결정은다른분|책임.*결정/.test(normalized)) return "responsibility_shift";
-  if (/저희팀만욕|팀만욕먹/.test(normalized)) return "team_risk";
-  if (/대표님아이디어|아무도반대못/.test(normalized)) return "founder_idea";
-  if (/웃고는있지만|동의한다는뜻은아/.test(normalized)) return "smile_not_agree";
-  if (/왜사|뭐하러사|생각.*하|뇌.*있|정신.*있/.test(normalized)) return "judgment_attitude";
-  if (/쫌생|좀생|쩨쩨|좁쌀|빡빡|융통성/.test(normalized)) return "rigid_attitude";
-  if (/말귀|몇번.*말|못알아|또말/.test(normalized)) return "repeated";
-  if (/아직|안됐|언제됐|지연/.test(normalized)) return "urgency";
-  if (/아닌것같|문제|반려|다시/.test(normalized)) return "risky_direction";
+  const scores = new Map();
 
-  return "general";
+  for (const rule of SCENARIO_PATTERNS) {
+    let score = 0;
+    for (const pat of rule.patterns) {
+      if (normalized.includes(pat)) {
+        score += rule.weight;
+      }
+    }
+    if (score > 0) {
+      scores.set(rule.scenario, (scores.get(rule.scenario) || 0) + score);
+    }
+  }
+
+  if (scores.size === 0) return "general";
+
+  let bestScenario = "general";
+  let bestScore = 0;
+  for (const [scenario, score] of scores) {
+    if (score > bestScore) {
+      bestScore = score;
+      bestScenario = scenario;
+    }
+  }
+
+  return bestScenario;
 }
 
 function extractRecipientName(text) {
@@ -740,12 +778,45 @@ function inferIntentHint(text) {
 function estimateRisk(input) {
   const text = toContext(input).text;
   const normalized = text.replace(/\s+/g, "");
-  if (/씨발|병신|미친|꺼져|죽|왜사|입냄새|냄새|뇌|말귀|멍청|한심|쫌생|좀생|쩨쩨|좁쌀/.test(normalized)) {
-    return { level: "high", reason: "상대가 공격이나 모욕으로 받아들일 수 있는 표현이 포함되어 있습니다." };
+
+  const highPatterns = [
+    { re: /씨발|병신|미친|꺼져|죽|뒤져|엠창/, label: "심한 욕설" },
+    { re: /왜사|뭐하러사|뇌있|뇌가|정신있|제정신/, label: "인신공격성 표현" },
+    { re: /입냄새|냄새|구강|악취|위생/, label: "개인 위건 모욕" },
+    { re: /말귀|멍청|한심|바보|등신/, label: "지능 비하" },
+    { re: /쫌생|좀생|쩨쩨|좁쌀/, label: "성격 모욕" },
+  ];
+
+  for (const { re, label } of highPatterns) {
+    if (re.test(normalized)) {
+      return { level: "high", reason: `${label}이 포함되어 있어 상대가 공격으로 받아들일 수 있습니다.` };
+    }
   }
-  if (/왜|아직|안됐|말이안|무리|아닌|제일아닌|짜증|답답|빡빡|융통성/.test(normalized)) {
-    return { level: "medium", reason: "불만이나 압박으로 읽힐 수 있어 표현을 조정하는 편이 좋습니다." };
+
+  const mediumPatterns = [
+    { re: /왜아직|아직안|언제/, label: "독촉성 표현" },
+    { re: /말이안|무리|불가|안됨|안돼/, label: "부정적 압박" },
+    { re: /아닌|제일아닌/, label: "강한 부정" },
+    { re: /짜증|답답|빡빡|융통성/, label: "감정적 불만" },
+    { re: /또바뀌|자꾸|계속/, label: "반복적 불만" },
+  ];
+
+  let mediumCount = 0;
+  let mediumLabel = "";
+  for (const { re, label } of mediumPatterns) {
+    if (re.test(normalized)) {
+      mediumCount++;
+      mediumLabel = label;
+    }
   }
+
+  if (mediumCount >= 2) {
+    return { level: "medium", reason: "여러 불만 표현이 겹쳐 압박감이 큰 문장입니다." };
+  }
+  if (mediumCount === 1) {
+    return { level: "medium", reason: `${mediumLabel}으로 읽혀 표현을 조정하는 편이 좋습니다.` };
+  }
+
   return { level: "low", reason: "큰 충돌 없이 전달할 수 있는 문장입니다." };
 }
 

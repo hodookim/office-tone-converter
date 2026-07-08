@@ -118,7 +118,10 @@
               <button class="result-action" id="copyAllButton" type="button" disabled>전체 복사</button>
             </div>
             <div class="risk-meter" id="riskMeter" hidden>
-              <span class="risk-badge" id="riskBadge">위험도 보통</span>
+              <div class="risk-bar-wrap">
+                <span class="risk-badge" id="riskBadge">위험도 보통</span>
+                <div class="risk-bar-track"><div class="risk-bar-fill" id="riskBarFill"></div></div>
+              </div>
               <p id="riskReason">원문 표현을 분석 중입니다.</p>
             </div>
             <div class="result-list" id="resultList">
