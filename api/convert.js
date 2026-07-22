@@ -237,7 +237,7 @@ function buildPrompt({ text, audience, tone, format, intentHint }) {
     "9. '말귀 못 알아듣냐', '몇 번을 말하냐'는 전달 내용이 제대로 반영되지 않았다는 불만으로 해석한다.",
     "10. 원문이 공격적일수록 사실을 새로 만들지 말고, '판단 기준', '소통 방식', '업무 태도', '회의 환경'처럼 원문의 불만 축을 유지한다.",
     "11. 예: '대희야 진짜 너 왜 사냐'는 '대희님, 이번 판단이나 대응 방식은 납득하기 어려운 부분이 있습니다'처럼 바꾼다. 절대 업무 지연, 일정 지연, 자료 요청으로 바꾸지 않는다.",
-    "12. 이름이 없다고 '거래처님', '상사님', '동료님', '후배님' 같은 상대 유형을 호칭처럼 쓰지 않는다.",
+    "12. 이름이나 직급이 없다고 '거래처님', '상사님', '동료님', '후배님', '팀장님', '부장님' 같은 호칭을 새로 만들지 않는다.",
     "13. 각 표현은 서로 다른 문장 구조를 사용해야 한다. 5개 결과가 비슷한 패턴이면 안 된다.",
     "14. 자연스러운 한국어 비즈니스 표현을 사용한다. 번역투는 금지.",
     "",
@@ -671,12 +671,23 @@ function repairAwkwardVocatives(text, context) {
     .replace(/^동료님,?\s*/g, "")
     .replace(/^후배님,?\s*/g, "")
     .replace(/^직원님,?\s*/g, "");
+  const withoutInventedTitle = removeInventedTitlePrefix(withoutBadVendor, context.text);
 
   if (context.audience !== "customer") {
-    return withoutBadVendor.replace(/^고객님,?\s*/g, "");
+    return withoutInventedTitle.replace(/^고객님,?\s*/g, "");
   }
 
-  return withoutBadVendor;
+  return withoutInventedTitle;
+}
+
+function removeInventedTitlePrefix(text, original) {
+  const titlePattern = /^(대표|사장|부사장|전무|상무|이사|실장|본부장|센터장|팀장|부장|차장|과장|대리|주임|선배)님,?\s*/;
+  const match = text.match(titlePattern);
+  if (!match) return text;
+
+  const source = String(original || "").replace(/\s+/g, "");
+  if (source.includes(match[1])) return text;
+  return text.replace(titlePattern, "");
 }
 
 function hasBannedVocative(text) {

@@ -60,6 +60,7 @@ const cases = [
 ];
 
 const bannedVocatives = /(거래처님|상사님|동료님|후배님|직원님)/;
+const commonTitlePrefix = /^(대표|사장|부사장|전무|상무|이사|실장|본부장|센터장|팀장|부장|차장|과장|대리|주임|선배)님/;
 const bannedRawWords = /(입냄새|까먹|양심 없는|만능 해결사|사람 살려|삐지|망할|답정너|정신승리|떠넘기기|욕먹|쫌생)/;
 
 function request(text) {
@@ -125,6 +126,35 @@ function expectedName(text) {
     if (name && !joined.includes(name)) {
       failures.push(`${index + 1}. recipient name not preserved (${name}): ${text}\n${joined}`);
     }
+
+    for (const resultText of resultTexts) {
+      const title = resultText.match(commonTitlePrefix)?.[1];
+      if (title && !text.includes(title)) {
+        failures.push(`${index + 1}. invented title (${title}님): ${text}\n${resultText}`);
+      }
+    }
+  }
+
+  const inventedTitleResponse = {
+    risk: { level: "medium", reason: "일정 조율이 필요한 표현" },
+    results: [
+      { title: "정중한 표현", text: "팀장님, 이 일정은 현실적으로 어렵습니다. 일정 조정이 필요합니다." },
+      { title: "부드러운 표현", text: "부장님, 현재 일정은 다소 어려워 보여 함께 조정하면 좋겠습니다." },
+      { title: "단호한 표현", text: "과장님, 현재 일정으로는 진행하기 어렵습니다. 조정이 필요합니다." },
+      { title: "짧은 표현", text: "대리님, 현재 일정은 조정이 필요합니다." },
+      { title: "센스형 표현", text: "팀장님, 달력에도 숨 쉴 틈이 필요해 일정 조정을 부탁드립니다." },
+    ],
+  };
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(inventedTitleResponse) }] } }] }),
+  });
+
+  const titleTest = await request("이 일정은 현실적으로 어렵습니다.");
+  const titleTestTexts = (titleTest.payload.results || []).map((item) => item.text || "");
+  if (titleTestTexts.some((text) => commonTitlePrefix.test(text))) {
+    failures.push(`invented title was not removed:\n${titleTestTexts.join("\n")}`);
   }
 
   if (failures.length) {
@@ -133,5 +163,5 @@ function expectedName(text) {
     process.exit(1);
   }
 
-  console.log(`PASS ${cases.length}/${cases.length} office tone cases`);
+  console.log(`PASS ${cases.length} office tone cases + invented title normalization`);
 })();

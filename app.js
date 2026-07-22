@@ -14,14 +14,23 @@ const themeOptions = document.querySelectorAll("[data-theme]");
 const riskMeter = document.querySelector("#riskMeter");
 const riskBadge = document.querySelector("#riskBadge");
 const riskReason = document.querySelector("#riskReason");
+const pasteButton = document.querySelector("#pasteButton");
+const clearInputButton = document.querySelector("#clearInputButton");
+const networkStatus = document.querySelector("#networkStatus");
+const toast = document.querySelector("#toast");
+const tabButtons = document.querySelectorAll("[data-tab-target]");
+const appViews = document.querySelectorAll("[data-app-view]");
 
 const RECENT_KEY = "office-tone-recent-v2";
 const THEME_KEY = "office-tone-theme";
 const PRODUCTION_API_ORIGIN = "https://office-tone-converter.vercel.app";
+const REQUEST_TIMEOUT_MS = 30000;
 const ADMOB_TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
 const ADMOB_BANNER_ID = window.OFFICE_TONE_ADMOB_BANNER_ID || ADMOB_TEST_BANNER_ID;
+const isMobileShell = document.body.classList.contains("mobile-app");
 let hasConverted = false;
 let lastResults = [];
+let toastTimer;
 
 const labels = {
   audience: {
@@ -52,11 +61,11 @@ const riskCopy = {
 };
 
 function getActiveValue(group) {
-  return group.querySelector(".active").dataset.value;
+  return group?.querySelector(".active")?.dataset.value || "";
 }
 
 function setActive(button) {
-  const group = button.parentElement;
+  const group = button.closest('[role="radiogroup"]') || button.parentElement;
   group.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.remove("active");
     chip.setAttribute("aria-checked", "false");
@@ -76,11 +85,11 @@ function cleanInput(text) {
 }
 
 async function requestAiResults(raw, audience, tone, format) {
-  const response = await fetch(getApiUrl("/api/convert"), {
+  const response = await fetchWithTimeout(getApiUrl("/api/convert"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: raw, audience, tone, format }),
-  });
+  }, REQUEST_TIMEOUT_MS);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -103,6 +112,24 @@ async function requestAiResults(raw, audience, tone, format) {
     })), tone),
     warning: data.warning,
   };
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = new Error("AI 응답 시간이 초과되었습니다.");
+      timeoutError.code = "REQUEST_TIMEOUT";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function pickResultsForTone(results, tone) {
@@ -204,6 +231,14 @@ async function buildResults() {
     return;
   }
 
+  if (!navigator.onLine) {
+    lastResults = [];
+    updateCopyAllState();
+    renderRisk(null);
+    renderUnavailableState({ code: "OFFLINE" });
+    return;
+  }
+
   setLoading(true);
   renderRisk({ level: "medium", reason: "원문 표현을 분석 중입니다." });
   renderEmpty("회사어로 바꾸는 중입니다.", "문장 의도와 상대를 함께 반영하고 있어요.");
@@ -216,6 +251,7 @@ async function buildResults() {
     renderResults(aiData.results, aiData.warning);
     saveRecent({ text: raw, audience, tone, format, results: aiData.results, risk: aiData.risk, createdAt: Date.now() });
     renderRecent();
+    showToast("회사어 변환이 완료되었습니다.");
     scrollToResults();
   } catch (error) {
     lastResults = [];
@@ -270,25 +306,46 @@ function renderResults(items, notice) {
     card.style.animationDelay = `${index * 120}ms`;
     const header = document.createElement("header");
     const title = document.createElement("h3");
+    const actions = document.createElement("div");
     const copy = document.createElement("button");
     const text = document.createElement("p");
 
+    actions.className = "result-actions";
     title.textContent = item.title;
     copy.className = "copy-button";
     copy.type = "button";
     copy.textContent = "복사";
+    copy.setAttribute("aria-label", `${item.title} 복사`);
     copy.addEventListener("click", async () => {
       await writeClipboard(item.text);
       copy.textContent = "완료";
       card.classList.add("copied");
+      showToast("문장을 복사했습니다.");
       setTimeout(() => {
         copy.textContent = "복사";
         card.classList.remove("copied");
       }, 1200);
     });
 
+    actions.append(copy);
+    if (isMobileShell && typeof navigator.share === "function") {
+      const share = document.createElement("button");
+      share.className = "share-button";
+      share.type = "button";
+      share.textContent = "공유";
+      share.setAttribute("aria-label", `${item.title} 공유`);
+      share.addEventListener("click", async () => {
+        try {
+          await navigator.share({ title: item.title, text: item.text });
+        } catch (error) {
+          if (error.name !== "AbortError") showToast("공유할 수 없습니다. 복사를 이용해주세요.");
+        }
+      });
+      actions.append(share);
+    }
+
     text.textContent = item.text;
-    header.append(title, copy);
+    header.append(title, actions);
     card.append(header, text);
     resultList.append(card);
   });
@@ -315,14 +372,37 @@ function renderLimitState() {
 }
 
 function renderUnavailableState(error) {
+  const isOffline = error.code === "OFFLINE" || !navigator.onLine;
+  const isTimeout = error.code === "REQUEST_TIMEOUT";
   const isNotConfigured = error.status === 503;
   resultList.innerHTML = "";
   const card = document.createElement("article");
   card.className = "limit-state";
-  card.innerHTML = `
-    <strong>${isNotConfigured ? "아직 AI API가 연결되지 않았습니다." : "AI 변환이 잠시 불안정합니다."}</strong>
-    <span>${isNotConfigured ? "API 키를 연결하면 바로 AI 변환 결과가 나옵니다." : "잠시 후 다시 시도해주세요."}</span>
-  `;
+  const title = document.createElement("strong");
+  const description = document.createElement("span");
+
+  if (isOffline) {
+    title.textContent = "인터넷 연결이 필요합니다.";
+    description.textContent = "연결을 확인한 뒤 다시 시도해주세요.";
+  } else if (isNotConfigured) {
+    title.textContent = "아직 AI API가 연결되지 않았습니다.";
+    description.textContent = "API 설정을 확인해주세요.";
+  } else if (isTimeout) {
+    title.textContent = "AI 응답이 예상보다 오래 걸리고 있습니다.";
+    description.textContent = "네트워크 상태를 확인한 뒤 다시 시도해주세요.";
+  } else {
+    title.textContent = "AI 변환이 잠시 불안정합니다.";
+    description.textContent = "잠시 후 다시 시도해주세요.";
+  }
+
+  card.append(title, description);
+  if (!isNotConfigured) {
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.textContent = "다시 시도";
+    retry.addEventListener("click", buildResults);
+    card.append(retry);
+  }
   resultList.append(card);
 }
 
@@ -375,7 +455,9 @@ function renderRecent() {
         renderRisk(item.risk);
         renderResults(lastResults);
       }
+      activateTab("compose");
       sourceText.focus();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
     recentList.append(button);
   });
@@ -395,6 +477,7 @@ function attachSwipeDelete(button, item) {
 
   button.addEventListener("touchstart", (e) => {
     startX = e.touches[0].clientX;
+    currentX = startX;
     isDragging = true;
   }, { passive: true });
 
@@ -444,10 +527,22 @@ async function writeClipboard(text) {
 
 function setLoading(isLoading) {
   convertButton.disabled = isLoading;
-  convertButton.textContent = isLoading ? "변환 중..." : "회사어로 바꾸기";
+  setConvertButtonLabel(isLoading ? "변환 중..." : "회사어로 바꾸기");
   if (isLoading) {
     renderSkeletonLoading();
   }
+}
+
+function setConvertButtonLabel(label) {
+  if (!isMobileShell) {
+    convertButton.textContent = label;
+    return;
+  }
+
+  const icon = document.createElement("img");
+  icon.src = "./assets/icons/sparkles.svg";
+  icon.alt = "";
+  convertButton.replaceChildren(icon, document.createTextNode(label));
 }
 
 function renderSkeletonLoading() {
@@ -506,17 +601,98 @@ function applyTheme(theme) {
     button.setAttribute("aria-pressed", String(isActive));
   });
   localStorage.setItem(THEME_KEY, nextTheme);
+
+  const isDark = nextTheme === "dark" || (nextTheme === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta && isMobileShell) themeMeta.content = isDark ? "#111416" : "#f5f7fb";
+}
+
+function showToast(message) {
+  if (!toast || !message) return;
+  clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.hidden = false;
+  toastTimer = setTimeout(() => {
+    toast.hidden = true;
+  }, 1800);
+}
+
+function activateTab(name) {
+  if (!appViews.length) return;
+
+  appViews.forEach((view) => {
+    const isActive = view.dataset.appView === name;
+    view.hidden = !isActive;
+    view.classList.toggle("active", isActive);
+  });
+
+  tabButtons.forEach((button) => {
+    const isActive = button.dataset.tabTarget === name;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    button.tabIndex = isActive ? 0 : -1;
+  });
+
+  if (name === "history") renderRecent();
+}
+
+function invalidateResults(title = "설정이 바뀌었습니다.") {
+  if (!hasConverted && lastResults.length === 0) return;
+  hasConverted = false;
+  lastResults = [];
+  renderRisk(null);
+  updateCopyAllState();
+  renderEmpty(title, "현재 문장과 설정으로 다시 변환해주세요.");
+}
+
+function resetComposer({ resetOptions = false, focus = true } = {}) {
+  sourceText.value = "";
+  hasConverted = false;
+  lastResults = [];
+  if (resetOptions) {
+    setGroupValue(audienceGroup, "boss");
+    setGroupValue(toneGroup, "polite");
+    setGroupValue(formatGroup, "general");
+  }
+  renderRisk(null);
+  updateCopyAllState();
+  updateCount();
+  renderEmpty("문장을 입력하면 AI가 의도와 수위를 함께 판단합니다.", "선택한 톤 1개와 센스형 표현 1개를 함께 제안합니다.");
+  activateTab("compose");
+  if (focus) sourceText.focus();
+}
+
+async function pasteFromClipboard() {
+  if (!navigator.clipboard?.readText) {
+    showToast("입력창을 길게 눌러 붙여넣어주세요.");
+    sourceText.focus();
+    return;
+  }
+
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) {
+      showToast("클립보드에 붙여넣을 문장이 없습니다.");
+      return;
+    }
+    sourceText.value = text.slice(0, Number(sourceText.maxLength) || 500);
+    updateCount();
+    invalidateResults("원문이 변경되었습니다.");
+    sourceText.focus();
+  } catch {
+    showToast("입력창을 길게 눌러 붙여넣어주세요.");
+    sourceText.focus();
+  }
+}
+
+function updateNetworkStatus() {
+  if (networkStatus) networkStatus.hidden = navigator.onLine;
 }
 
 document.querySelectorAll(".chip").forEach((button) => {
   button.addEventListener("click", () => {
     setActive(button);
-    if (sourceText.value.trim() && hasConverted) {
-      lastResults = [];
-      updateCopyAllState();
-      renderRisk(null);
-      renderEmpty("설정이 바뀌었습니다.", "새 상대, 톤, 형식으로 보려면 회사어로 바꾸기를 눌러주세요.");
-    }
+    if (sourceText.value.trim()) invalidateResults();
   });
 });
 
@@ -524,6 +700,16 @@ document.querySelectorAll("[data-example]").forEach((button) => {
   button.addEventListener("click", () => {
     sourceText.value = button.dataset.example;
     updateCount();
+    invalidateResults("새 문장을 불러왔습니다.");
+
+    if (button.dataset.autoconvert === "false") {
+      activateTab("compose");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      sourceText.focus();
+      showToast("입력창에 문장을 담았습니다.");
+      return;
+    }
+
     buildResults();
     sourceText.focus();
   });
@@ -531,14 +717,24 @@ document.querySelectorAll("[data-example]").forEach((button) => {
 
 themeOptions.forEach((button) => button.addEventListener("click", () => applyTheme(button.dataset.theme)));
 
+tabButtons.forEach((button, index) => {
+  button.addEventListener("click", () => {
+    activateTab(button.dataset.tabTarget);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  button.addEventListener("keydown", (event) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    const nextIndex = (index + direction + tabButtons.length) % tabButtons.length;
+    tabButtons[nextIndex].focus();
+    tabButtons[nextIndex].click();
+  });
+});
+
 sourceText.addEventListener("input", () => {
   updateCount();
-  if (hasConverted) {
-    hasConverted = false;
-    lastResults = [];
-    renderRisk(null);
-    updateCopyAllState();
-  }
+  invalidateResults("원문이 변경되었습니다.");
 });
 
 sourceText.addEventListener("keydown", (event) => {
@@ -553,22 +749,19 @@ copyAllButton.addEventListener("click", async () => {
   if (lastResults.length === 0) return;
   await writeClipboard(lastResults.map((item) => item.text).join("\n\n"));
   copyAllButton.textContent = "완료";
+  showToast("추천 표현을 모두 복사했습니다.");
   setTimeout(updateCopyAllState, 1200);
 });
 clearRecentButton.addEventListener("click", () => {
   localStorage.removeItem(RECENT_KEY);
   renderRecent();
+  showToast("최근 기록을 비웠습니다.");
 });
-clearButton.addEventListener("click", () => {
-  sourceText.value = "";
-  hasConverted = false;
-  lastResults = [];
-  renderRisk(null);
-  updateCopyAllState();
-  updateCount();
-  renderEmpty("문장을 입력하면 AI가 의도와 수위를 함께 판단합니다.", "선택한 톤 1개와 센스형 표현 1개를 함께 제안합니다.");
-  sourceText.focus();
-});
+clearButton.addEventListener("click", () => resetComposer({ resetOptions: true }));
+pasteButton?.addEventListener("click", pasteFromClipboard);
+clearInputButton?.addEventListener("click", () => resetComposer({ focus: true }));
+window.addEventListener("online", updateNetworkStatus);
+window.addEventListener("offline", updateNetworkStatus);
 
 updateCount();
 updateModeLabel();
@@ -576,4 +769,6 @@ updateCopyAllState();
 syncChipAccessibility();
 applyTheme(localStorage.getItem(THEME_KEY) || "auto");
 renderRecent();
+activateTab("compose");
+updateNetworkStatus();
 initNativeAds();

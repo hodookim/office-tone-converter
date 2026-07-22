@@ -3,14 +3,14 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const outDir = path.join(root, "mobile-web");
+const mobileEntry = path.join(root, "app-mobile.html");
 
 const files = [
-  "index.html",
-  "styles.css",
   "app.js",
+  "mobile-app.css",
+  "site-v2.css",
+  "theme-init.js",
   "favicon.svg",
-  "manifest.webmanifest",
-  "llms.txt",
   "about.html",
   "contact.html",
   "privacy.html",
@@ -24,6 +24,12 @@ const directories = ["assets"];
 
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
+
+if (!fs.existsSync(mobileEntry)) {
+  throw new Error("app-mobile.html is required for the Android bundle.");
+}
+
+fs.copyFileSync(mobileEntry, path.join(outDir, "index.html"));
 
 for (const file of files) {
   const source = path.join(root, file);
